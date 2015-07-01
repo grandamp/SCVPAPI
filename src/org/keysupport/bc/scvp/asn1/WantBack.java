@@ -1,8 +1,6 @@
 package org.keysupport.bc.scvp.asn1;
 
-import java.util.Vector;
-
-import org.bouncycastle.asn1.ASN1Object;
+import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 
 public class WantBack extends SeqOfASN1Object {
@@ -49,7 +47,7 @@ public class WantBack extends SeqOfASN1Object {
 	final static ASN1ObjectIdentifier idSwbPkcCAsRevocationInfo = new ASN1ObjectIdentifier(
 			"1.3.6.1.5.5.7.18.14");
 
-	public WantBack(Vector<ASN1Object> oids) {
+	public WantBack(ASN1EncodableVector oids) {
 		super(oids);
 	}
 

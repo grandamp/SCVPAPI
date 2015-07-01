@@ -1,39 +1,66 @@
 package org.keysupport.bc.scvp;
 
+import java.io.ByteArrayInputStream;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.security.SecureRandom;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 
 import org.bouncycastle.asn1.ASN1Boolean;
+import org.bouncycastle.asn1.ASN1EncodableVector;
+import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Object;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.DERUTF8String;
 import org.bouncycastle.asn1.x509.Certificate;
 import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.pqc.math.linearalgebra.Vector;
 import org.keysupport.bc.scvp.asn1.CVRequest;
 import org.keysupport.bc.scvp.asn1.CertChecks;
 import org.keysupport.bc.scvp.asn1.CertReferences;
 import org.keysupport.bc.scvp.asn1.PKCReference;
 import org.keysupport.bc.scvp.asn1.Query;
 import org.keysupport.bc.scvp.asn1.SCVPRequest;
+import org.keysupport.bc.scvp.asn1.SeqOfASN1Object;
 import org.keysupport.bc.scvp.asn1.TrustAnchors;
 import org.keysupport.bc.scvp.asn1.UserPolicySet;
 import org.keysupport.bc.scvp.asn1.ValidationPolRef;
+import org.keysupport.bc.scvp.asn1.ValidationPolicy;
 
 public class SCVPRequestBuilder {
 
+	/*
+	 * The core of the request
+	 */
 	private SCVPRequest encapRequest = null;
 	private CVRequest request = null;
 	private Query query = null;
-
-	private CertChecks checks = null;
-	private TrustAnchors anchors = null;
+	private ValidationPolicy validationPolicy = null;
+	/*
+	 * ValidationPolicy Contents
+	 */
 	private ValidationPolRef validationPolRef = null;
 	private UserPolicySet initialPolicies = null;
 	private ASN1Boolean inhibitAnyPolicy = null;
 	private ASN1Boolean requireExplicitPolicy = null;
 	private ASN1Boolean inhibitPolicyMapping = null;
+	private TrustAnchors anchors = null;
+	/*
+	 * Query Contents
+	 */
+	private CertChecks checks = null;
 	private CertReferences queriedCerts = null;
+	/*
+	 * CVRequest Contents
+	 */
 	private GeneralName requestorName = null;
 	private DERUTF8String requestorText = null;
 	private ASN1OctetString requestNonce = null;
@@ -102,11 +129,14 @@ public class SCVPRequestBuilder {
 	}
 
 	public void addCertReference(Certificate cert) {
+		ASN1EncodableVector v = new ASN1EncodableVector();
+		v.add(cert);
+		
 		if (this.queriedCerts != null) {
-			this.queriedCerts.addReference(cert, CertReferences.pkcRefs);
+			this.queriedCerts.addReference(new DERSequence(v), CertReferences.pkcRefs);
 		} else {
 			this.queriedCerts = new CertReferences();
-			this.queriedCerts.addReference(cert, CertReferences.pkcRefs);
+			this.queriedCerts.addReference(new DERSequence(v), CertReferences.pkcRefs);
 		}
 	}
 	
@@ -130,21 +160,65 @@ public class SCVPRequestBuilder {
 	}
 
 	public SCVPRequest buildRequest() {
-		//Going to rely on the developer to call the minimal setters (some can be null)
+		/*
+		 * Start by building the ValidationPolicy per the setters called.
+		 */
 		
-		//setCertCheck(CvCheckOid.idStcBuildStatusCheckedPkcPath);
-		//addTrustAnchors(trustAnchor);
-		//setValidationPolRef("1.3.6.1.5.5.7.19.1");
-		//addUserPolicy("2.16.840.1.101.3.2.1.3.13");
-		//setInhibitAnyPolicy(true);
-		//setRequireExplicitPolicy(true);
-		//setInhibitPolicyMapping(false);
-		//addQueriedCerts(endEntityCert);
-		//setRequestorName(6, "URN:ValidationService:TEST:SCVPExample");
-		//setRequestorText("LOG;HI;MAJ;OTH;APP,HTTP://FOO.GOV/,-");
-		//setNonce(nonce);
+		validationPolicy = new ValidationPolicy(validationPolRef, null, initialPolicies,
+				inhibitPolicyMapping, requireExplicitPolicy, inhibitAnyPolicy, anchors, null, null, null);
+		/*
+		 * Next, we build the Query with the settings called, adding the ValidationPolicy.
+		 */
+		query = new Query(queriedCerts, checks, null, validationPolicy, null, null, null, null,
+				null, null, null);
+		/*
+		 * Now we construct the CVRequest, and add the Query.
+		 */
+		request = new CVRequest(query, null, requestNonce, requestorName, null, null, null, null, requestorText);
+		/*
+		 * Finally, we envelope the CVRequest in a CMS message and return to the caller.
+		 */
+		encapRequest = new SCVPRequest(SCVPRequest.idCtScvpCertValRequest, request);
+		return encapRequest;
+	}
+	
+	/*
+	 * Temporary main method for testing.
+	 */
+	public static void main(String args[]) throws CertificateException, IOException {
 		
-		//Then, this method is called to produce the request.
-		return null;
+		CertificateFactory cf = CertificateFactory.getInstance("X.509");
+		String certFile = "/tmp/eeCert";
+		X509Certificate endEntityCert = (X509Certificate) cf.generateCertificate(new FileInputStream(certFile));
+		ByteArrayInputStream bais = new ByteArrayInputStream(endEntityCert.getEncoded());
+		ASN1InputStream dis = new ASN1InputStream(bais);
+		ASN1Primitive dobj = dis.readObject();
+		dis.close();
+		Certificate eCert = Certificate.getInstance(dobj);
+		System.out.println(eCert.getSubject().toString());
+		
+		SCVPRequestBuilder builder = new SCVPRequestBuilder();
+		builder.addCertCheck(CertChecks.idStcBuildStatusCheckedPkcPath);
+		//builder.addTrustAnchors(trustAnchor);
+		builder.setValidationPolRef(new ASN1ObjectIdentifier("1.3.6.1.5.5.7.19.1"), null);
+		builder.addUserPolicy(new ASN1ObjectIdentifier("2.16.840.1.101.3.2.1.3.13"));
+		builder.setInhibitAnyPolicy(true);
+		builder.setRequireExplicitPolicy(true);
+		builder.setInhibitPolicyMapping(false);
+		builder.addCertReference(eCert);
+		builder.setRequestorName("URN:ValidationService:TEST:SCVPExample");
+		builder.setRequestorText("LOG;HI;MAJ;OTH;APP,HTTP://FOO.GOV/,-");
+		builder.generateNonce(16);
+		SCVPRequest req = builder.buildRequest();
+		byte[] rawReq = req.toASN1Primitive().getEncoded();
+		bais.reset();
+		FileOutputStream stream = new FileOutputStream("/tmp/request");
+		try {
+		    stream.write(rawReq);
+		} finally {
+		    stream.close();
+		}
+		System.out.println("fin");
+		
 	}
 }
