@@ -89,28 +89,28 @@ public class CVRequest extends ASN1Object {
 		v.add(cvRequestVersion);
 		v.add(query);
 		if (requestorRef != null) {
-			v.add(new DERTaggedObject(true, 0, requestorRef));
+			v.add(new DERTaggedObject(false, 0, requestorRef));
 		}
 		if (requestNonce != null) {
-			v.add(new DERTaggedObject(true, 1, requestNonce));
+			v.add(new DERTaggedObject(false, 1, requestNonce));
 		}
 		if (requestorName != null) {
-			v.add(new DERTaggedObject(true, 2, requestorName));
+			v.add(new DERTaggedObject(false, 2, requestorName));
 		}
 		if (responderName != null) {
-			v.add(new DERTaggedObject(true, 3, responderName));
+			v.add(new DERTaggedObject(false, 3, responderName));
 		}
 		if (requestExtensions != null) {
-			v.add(new DERTaggedObject(true, 4, requestExtensions));
+			v.add(new DERTaggedObject(false, 4, requestExtensions));
 		}
 		if (signatureAlg != null) {
-			v.add(new DERTaggedObject(true, 5, signatureAlg));
+			v.add(new DERTaggedObject(false, 5, signatureAlg));
 		}
 		if (hashAlg != null) {
-			v.add(new DERTaggedObject(true, 6, hashAlg));
+			v.add(new DERTaggedObject(false, 6, hashAlg));
 		}
 		if (requestorText != null) {
-			v.add(new DERTaggedObject(true, 7, requestorText));
+			v.add(new DERTaggedObject(false, 7, requestorText));
 		}
 		return new DERSequence(v);
 	}

@@ -31,7 +31,7 @@ public class SCVPRequest extends ASN1Object{
 		ASN1EncodableVector v = new ASN1EncodableVector();
 		v.add(contentType);
 		if (request != null) {
-			v.add(new DERTaggedObject(true, 0, request));
+			v.add(new DERTaggedObject(false, 0, request));
 		}
 		return new DERSequence(v);
 	}

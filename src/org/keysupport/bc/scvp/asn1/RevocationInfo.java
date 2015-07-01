@@ -31,16 +31,16 @@ public class RevocationInfo extends ASN1Object {
 	public ASN1Primitive toASN1Primitive() {
 		ASN1EncodableVector v = new ASN1EncodableVector();
 		if (crl != null) {
-			v.add(new DERTaggedObject(true, 0, crl));
+			v.add(new DERTaggedObject(false, 0, crl));
 		}
 		if (deltaCrl != null) {
-			v.add(new DERTaggedObject(true, 1, deltaCrl));
+			v.add(new DERTaggedObject(false, 1, deltaCrl));
 		}
 		if (ocsp != null) {
-			v.add(new DERTaggedObject(true, 2, ocsp));
+			v.add(new DERTaggedObject(false, 2, ocsp));
 		}
 		if (other != null) {
-			v.add(new DERTaggedObject(true, 3, other));
+			v.add(new DERTaggedObject(false, 3, other));
 		}
 		return new DERSequence(v); 
 	}

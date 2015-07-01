@@ -9,6 +9,7 @@ public class UserPolicySet extends SeqOfASN1Object {
 	}
 
 	public UserPolicySet() {
+		super();
 	}
 
 }

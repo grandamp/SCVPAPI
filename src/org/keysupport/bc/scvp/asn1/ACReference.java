@@ -24,10 +24,10 @@ public class ACReference extends ASN1Object {
 	@Override
 	public ASN1Primitive toASN1Primitive() {
 		if (attrCert != null) {
-			return new DERTaggedObject(true, 2, attrCert);
+			return new DERTaggedObject(false, 2, attrCert);
 		}
 		if (acRef != null) {
-			return new DERTaggedObject(true, 3, acRef);
+			return new DERTaggedObject(false, 3, acRef);
 		}
 		return null;
 	}

@@ -1,10 +1,14 @@
 package org.keysupport.bc.scvp;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URL;
+import java.net.URLConnection;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
@@ -22,18 +26,18 @@ import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.DERUTF8String;
 import org.bouncycastle.asn1.x509.Certificate;
 import org.bouncycastle.asn1.x509.GeneralName;
-import org.bouncycastle.pqc.math.linearalgebra.Vector;
 import org.keysupport.bc.scvp.asn1.CVRequest;
 import org.keysupport.bc.scvp.asn1.CertChecks;
 import org.keysupport.bc.scvp.asn1.CertReferences;
 import org.keysupport.bc.scvp.asn1.PKCReference;
 import org.keysupport.bc.scvp.asn1.Query;
 import org.keysupport.bc.scvp.asn1.SCVPRequest;
-import org.keysupport.bc.scvp.asn1.SeqOfASN1Object;
 import org.keysupport.bc.scvp.asn1.TrustAnchors;
 import org.keysupport.bc.scvp.asn1.UserPolicySet;
 import org.keysupport.bc.scvp.asn1.ValidationPolRef;
 import org.keysupport.bc.scvp.asn1.ValidationPolicy;
+
+import sun.misc.IOUtils;
 
 public class SCVPRequestBuilder {
 
@@ -109,6 +113,7 @@ public class SCVPRequestBuilder {
 			initialPolicies.addObj(policy);
 		} else {
 			initialPolicies = new UserPolicySet();
+			initialPolicies.addObj(policy);
 		}
 	}
 	
@@ -211,14 +216,47 @@ public class SCVPRequestBuilder {
 		builder.generateNonce(16);
 		SCVPRequest req = builder.buildRequest();
 		byte[] rawReq = req.toASN1Primitive().getEncoded();
+		byte[] resp = builder.sendSCVPRequestPOST("REMOVED", rawReq);
+		
 		bais.reset();
 		FileOutputStream stream = new FileOutputStream("/tmp/request");
 		try {
-		    stream.write(rawReq);
+			stream.write(rawReq);
 		} finally {
-		    stream.close();
+			stream.close();
 		}
+		
 		System.out.println("fin");
 		
 	}
+	
+	public byte[] sendSCVPRequestPOST(String postURL, byte[] req) {
+		byte[] resp = null;
+		try {
+			URL url = new URL(postURL);
+			URLConnection con = url.openConnection();
+			con.setReadTimeout(10000);
+			con.setConnectTimeout(10000);
+			con.setAllowUserInteraction(false);
+			con.setUseCaches(false);
+			con.setDoOutput(true);
+			con.setDoInput(true);
+			con.setRequestProperty("Content-Type","application/scvp-cv-request");
+			OutputStream os = con.getOutputStream();
+			os.write(req);
+			os.close();
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			byte[] chunk = new byte[4096];
+			int bytesRead;
+			InputStream stream = con.getInputStream();
+			while ((bytesRead = stream.read(chunk)) > 0) {
+				baos.write(chunk, 0, bytesRead);
+			}
+			resp = baos.toByteArray();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return resp;
+	}
+
 }

@@ -64,29 +64,29 @@ public class Query extends ASN1Object {
 		v.add(queriedCerts);
 		v.add(checks);
 		if (wantBack != null) {
-			v.add(new DERTaggedObject(true, 1, wantBack));
+			v.add(new DERTaggedObject(false, 1, wantBack));
 		}
 		v.add(validationPolicy);
 		if (responseFlags != null) {
 			v.add(responseFlags);
 		}
 		if (serverContextInfo != null) {
-			v.add(new DERTaggedObject(true, 2, serverContextInfo));
+			v.add(new DERTaggedObject(false, 2, serverContextInfo));
 		}
 		if (validationTime != null) {
-			v.add(new DERTaggedObject(true, 3, validationTime));
+			v.add(new DERTaggedObject(false, 3, validationTime));
 		}
 		if (intermediateCerts != null) {
-			v.add(new DERTaggedObject(true, 4, intermediateCerts));
+			v.add(new DERTaggedObject(false, 4, intermediateCerts));
 		}
 		if (revInfos != null) {
-			v.add(new DERTaggedObject(true, 5, revInfos));
+			v.add(new DERTaggedObject(false, 5, revInfos));
 		}
 		if (producedAt != null) {
-			v.add(new DERTaggedObject(true, 6, producedAt));
+			v.add(new DERTaggedObject(false, 6, producedAt));
 		}
 		if (queryExtensions != null) {
-			v.add(new DERTaggedObject(true, 7, queryExtensions));
+			v.add(new DERTaggedObject(false, 7, queryExtensions));
 		}
 		return new DERSequence(v);
 	}

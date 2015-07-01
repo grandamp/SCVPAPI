@@ -27,10 +27,10 @@ public class PKCReference extends ASN1Object {
 	@Override
 	public ASN1Primitive toASN1Primitive() {
 		if (cert != null) {
-			return new DERTaggedObject(true, 0, cert);
+			return new DERTaggedObject(false, 0, cert);
 		}
 		if (pkcRef != null) {
-			return new DERTaggedObject(true, 1, pkcRef);
+			return new DERTaggedObject(false, 1, pkcRef);
 		}
 		return null;
 	}
