@@ -15,14 +15,12 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 
 import org.bouncycastle.asn1.ASN1Boolean;
-import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Object;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.DEROctetString;
-import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.DERUTF8String;
 import org.bouncycastle.asn1.x509.Certificate;
 import org.bouncycastle.asn1.x509.GeneralName;
@@ -36,8 +34,6 @@ import org.keysupport.bc.scvp.asn1.TrustAnchors;
 import org.keysupport.bc.scvp.asn1.UserPolicySet;
 import org.keysupport.bc.scvp.asn1.ValidationPolRef;
 import org.keysupport.bc.scvp.asn1.ValidationPolicy;
-
-import sun.misc.IOUtils;
 
 public class SCVPRequestBuilder {
 
@@ -129,20 +125,12 @@ public class SCVPRequestBuilder {
 		this.inhibitPolicyMapping = ASN1Boolean.getInstance(inhibit);
 	}
 
-	public void setCertReferences(CertReferences queriedCerts) {
-		this.queriedCerts = queriedCerts;
+	public void setCertReferences(Certificate cert) {
+		this.queriedCerts = new CertReferences(new PKCReference(cert));
 	}
 
 	public void addCertReference(Certificate cert) {
-		ASN1EncodableVector v = new ASN1EncodableVector();
-		v.add(cert);
-		
-		if (this.queriedCerts != null) {
-			this.queriedCerts.addReference(new DERSequence(v), CertReferences.pkcRefs);
-		} else {
-			this.queriedCerts = new CertReferences();
-			this.queriedCerts.addReference(new DERSequence(v), CertReferences.pkcRefs);
-		}
+		this.queriedCerts = new CertReferences(new PKCReference(cert));
 	}
 	
 	//TODO:  Create another class based on GSA profile formula
@@ -218,6 +206,9 @@ public class SCVPRequestBuilder {
 		byte[] rawReq = req.toASN1Primitive().getEncoded();
 		byte[] resp = builder.sendSCVPRequestPOST("REMOVED", rawReq);
 		
+		/*
+		 * We will save off the request and response for analysis as we develop.
+		 */
 		bais.reset();
 		FileOutputStream stream = new FileOutputStream("/tmp/request");
 		try {
@@ -225,7 +216,19 @@ public class SCVPRequestBuilder {
 		} finally {
 			stream.close();
 		}
+		bais.reset();
+		stream = new FileOutputStream("/tmp/response");
+		try {
+			stream.write(resp);
+		} finally {
+			stream.close();
+		}
 		
+		/*
+		 * Now that we ca create a successful DPV request and receive a response
+		 * from the service, we had better get to cracking on parsing the response
+		 * and validating the signature!
+		 */
 		System.out.println("fin");
 		
 	}

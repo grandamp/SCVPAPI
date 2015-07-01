@@ -27,7 +27,6 @@ public abstract class SeqOfASN1Object extends ASN1Object {
 
 	@Override
 	public ASN1Primitive toASN1Primitive() {
-		System.out.println("Objects Size: " + objs.size());
 		if (objs.size() >= 1) {
 			return new DERSequence(objs);
 		} else {
