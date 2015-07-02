@@ -1,5 +1,8 @@
 package org.keysupport.bc.scvp.asn1;
 
+/*
+ * 
+ */
 public class SCVPResponse {
 
 	public SCVPResponse() {

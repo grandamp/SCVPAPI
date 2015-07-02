@@ -12,6 +12,7 @@ import java.net.URLConnection;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.util.List;
 
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
@@ -22,6 +23,7 @@ import org.bouncycastle.asn1.cms.CMSObjectIdentifiers;
 import org.bouncycastle.asn1.cms.ContentInfoParser;
 import org.bouncycastle.asn1.cms.SignedDataParser;
 import org.bouncycastle.asn1.x509.Certificate;
+import org.keysupport.bc.scvp.asn1.CVResponse;
 import org.keysupport.bc.scvp.asn1.CertChecks;
 import org.keysupport.bc.scvp.asn1.SCVPRequest;
 
@@ -155,8 +157,139 @@ public class ExampleSCVPClient {
 			//Error condition
 		}
 		
+		/*
+		 * Somewhat psudocode, but not.  TODO: make it happen.
+		 * 
+		 * Let's say this is the cart before the horse...
+		 * 
+		 * To validate the response, we need the SCVP signer cert and the request.
+		 * 
+		 * I.e., CVResponseVerifier
+		 * 
+		 * The response objects and artifacts will be populated by BC's notion of "Parsers"
+		 * 
+		 * I.e., CVResponseParser, ReplyStatusParser, CertReplyParser, etc...
+		 */
+		CVResponse cvResponse = cvResponse.getEncoded();
+		if (cvResponse != null) {
+			/*
+			 * verify that the response can be trusted
+			 */
+			CVResponseVerifier verifier = new CVResponseVerifier(cvRequest, cvResponse);
+			verifier.verify(signerCert);
+
+			switch (cvResponse.getReplyStatus()) {
+			case ReplyStatus.success: {
+				/*
+				 * Bottom line, if the replyStatus is anything other
+				 * than ReplyStatus.success, then it is invalid...
+				 */
+				valid = true;
+				System.out.println("success");
+				break;
+			}
+			case ReplyStatus.malformedPKC: {
+				System.out.println("malformedPKC");
+				break;
+			}
+			case ReplyStatus.malformedAC: {
+				System.out.println("malformedAC");
+				break;
+			}
+			case ReplyStatus.unavailableValidationTime: {
+				System.out.println("unavailableValidationTime");
+				break;
+			}
+			case ReplyStatus.referenceCertHashFail: {
+				System.out.println("referenceCertHashFail");
+				break;
+			}
+			case ReplyStatus.certPathConstructFail: {
+				System.out.println("certPathConstructFail");
+				break;
+			}
+			case ReplyStatus.certPathNotValid: {
+				System.out.println("certPathNotValid");
+				break;
+			}
+			case ReplyStatus.certPathNotValidNow: {
+				System.out.println("certPathNotValidNow");
+				break;
+			}
+			case ReplyStatus.wantBackUnsatisfied: {
+				System.out.println("wantBackUnsatisfied");
+				break;
+			}
+			default: {
+				System.out.println("Unknown");
+				break;
+			}
+			}
+			/*
+			 * sample of data's extraction from the CvResponse
+			 */
+			for (CertReply certReply : cvResponse.getReplyObjects()) {
+				/*
+				 * If validation error, print
+				 */
+				List<String> errors = certReply.getValidationErrors();
+				if (errors != null && !errors.isEmpty()) {
+					System.out.print("ValidationErrors: ");
+					for (String errOid : errors) {
+						if (errOid.equalsIgnoreCase("1.3.6.1.5.5.7.19.3.1")) {
+							System.out
+									.print("1.3.6.1.5.5.7.19.3.1 (id-bvae-expired) ");
+						} else if (errOid
+								.equalsIgnoreCase("1.3.6.1.5.5.7.19.3.2")) {
+							System.out
+									.print("1.3.6.1.5.5.7.19.3.2 (id-bvae-notYetValid) ");
+						} else if (errOid
+								.equalsIgnoreCase("1.3.6.1.5.5.7.19.3.3")) {
+							System.out
+									.print("1.3.6.1.5.5.7.19.3.3 (id-bvae-wrongTrustAnchor) ");
+						} else if (errOid
+								.equalsIgnoreCase("1.3.6.1.5.5.7.19.3.4")) {
+							System.out
+									.print("1.3.6.1.5.5.7.19.3.4 (id-bvae-noValidCertPath) ");
+						} else if (errOid
+								.equalsIgnoreCase("1.3.6.1.5.5.7.19.3.5")) {
+							System.out
+									.print("1.3.6.1.5.5.7.19.3.5 (id-bvae-revoked) ");
+						} else if (errOid
+								.equalsIgnoreCase("1.3.6.1.5.5.7.19.3.6")) {
+							System.out
+									.print("1.3.6.1.5.5.7.19.3.6 (id-bvae-6) ");
+						} else if (errOid
+								.equalsIgnoreCase("1.3.6.1.5.5.7.19.3.7")) {
+							System.out
+									.print("1.3.6.1.5.5.7.19.3.7 (id-bvae-7) ");
+						} else if (errOid
+								.equalsIgnoreCase("1.3.6.1.5.5.7.19.3.8")) {
+							System.out
+									.print("1.3.6.1.5.5.7.19.3.8 (id-bvae-8) ");
+						} else if (errOid
+								.equalsIgnoreCase("1.3.6.1.5.5.7.19.3.9")) {
+							System.out
+									.print("1.3.6.1.5.5.7.19.3.9 (id-bvae-invalidKeyPurpose) ");
+						} else if (errOid
+								.equalsIgnoreCase("1.3.6.1.5.5.7.19.3.10")) {
+							System.out
+									.print("1.3.6.1.5.5.7.19.3.10 (id-bvae-invalidKeyUsage) ");
+						} else if (errOid
+								.equalsIgnoreCase("1.3.6.1.5.5.7.19.3.11")) {
+							System.out
+									.print("1.3.6.1.5.5.7.19.3.11 (id-bvae-invalidCertPolicy) ");
+						} else {
+							System.out.print(errOid + " (unknown) ");
+						}
+					}
+					System.out.println();
+				}
+			}
+		} else {
+			//cvResponse was null!
+		}
 		System.out.println("Finished in " + (System.currentTimeMillis() - start) + " milliseconds.");
-		
 	}
 	
 	/*

@@ -1,0 +1,8 @@
+The intent of this project is to build a minimum viable SCVP client using a recent BouncyCastle API in Java.
+
+Additional examples in other languages would be optimal...  I.e.:
+
+JavaScript:  Using https://pkijs.org/
+C/C++:  Using OpenSSL?  Revive PKIF?  http://pkif.sourceforge.net/
+GO:  http://golang.org/pkg/crypto/x509/pkix/
+Ruby:  http://ruby-doc.org/stdlib-1.9.3/libdoc/openssl/rdoc/OpenSSL.html
