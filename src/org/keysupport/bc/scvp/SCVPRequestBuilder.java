@@ -180,6 +180,7 @@ public class SCVPRequestBuilder {
 	 */
 	public static void main(String args[]) throws CertificateException, IOException {
 		
+		long start = System.currentTimeMillis();
 		CertificateFactory cf = CertificateFactory.getInstance("X.509");
 		String certFile = "/tmp/eeCert";
 		X509Certificate endEntityCert = (X509Certificate) cf.generateCertificate(new FileInputStream(certFile));
@@ -192,9 +193,30 @@ public class SCVPRequestBuilder {
 		
 		SCVPRequestBuilder builder = new SCVPRequestBuilder();
 		builder.addCertCheck(CertChecks.idStcBuildStatusCheckedPkcPath);
+		/*
+		 * We can override policy, but our SCVP testing service makes
+		 * use of the Common Policy Root CA as the Trust Anchor.
+		 */
 		//builder.addTrustAnchors(trustAnchor);
 		builder.setValidationPolRef(new ASN1ObjectIdentifier("1.3.6.1.5.5.7.19.1"), null);
-		builder.addUserPolicy(new ASN1ObjectIdentifier("2.16.840.1.101.3.2.1.3.13"));
+		/*
+		 * Adding policy OIDs for OMB M-04-04 LOA-4:
+		 * 
+		 * http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-63-2.pdf#page=123
+		 * 
+		 * Where the OIDs are documented at:
+		 * 
+		 * http://csrc.nist.gov/groups/ST/crypto_apps_infra/csor/pki_registration.html
+		 */
+		builder.addUserPolicy(new ASN1ObjectIdentifier("2.16.840.1.101.3.2.1.3.13"));  //Common-Auth
+		builder.addUserPolicy(new ASN1ObjectIdentifier("2.16.840.1.101.3.2.1.3.18"));  //PIVI-Auth
+		builder.addUserPolicy(new ASN1ObjectIdentifier("2.16.840.1.101.3.2.1.3.26"));  //SHA1-Auth
+		builder.addUserPolicy(new ASN1ObjectIdentifier("2.16.840.1.101.3.2.1.3.7"));  //Common-HW
+		builder.addUserPolicy(new ASN1ObjectIdentifier("2.16.840.1.101.3.2.1.3.18"));  //PIVI-HW
+		builder.addUserPolicy(new ASN1ObjectIdentifier("2.16.840.1.101.3.2.1.3.24"));  //SHA1-HW
+		builder.addUserPolicy(new ASN1ObjectIdentifier("2.16.840.1.101.3.2.1.3.16"));  //Common-High
+		builder.addUserPolicy(new ASN1ObjectIdentifier("2.16.840.1.101.3.2.1.3.12"));  //FBCA Medium-HW
+		builder.addUserPolicy(new ASN1ObjectIdentifier("2.16.840.1.101.3.2.1.3.4"));  //FBCA High
 		builder.setInhibitAnyPolicy(true);
 		builder.setRequireExplicitPolicy(true);
 		builder.setInhibitPolicyMapping(false);
@@ -204,7 +226,7 @@ public class SCVPRequestBuilder {
 		builder.generateNonce(16);
 		SCVPRequest req = builder.buildRequest();
 		byte[] rawReq = req.toASN1Primitive().getEncoded();
-		byte[] resp = builder.sendSCVPRequestPOST("REMOVED", rawReq);
+		byte[] resp = builder.sendSCVPRequestPOST("http://vs.treas.gov", rawReq);
 		
 		/*
 		 * We will save off the request and response for analysis as we develop.
@@ -229,10 +251,14 @@ public class SCVPRequestBuilder {
 		 * from the service, we had better get to cracking on parsing the response
 		 * and validating the signature!
 		 */
-		System.out.println("fin");
+		System.out.println("Finished in " + (System.currentTimeMillis() - start) + " milliseconds.");
 		
 	}
 	
+	/*
+	 * This is not my preferable path...
+	 * TODO:  Replace transport with Apache HTTP client
+	 */
 	public byte[] sendSCVPRequestPOST(String postURL, byte[] req) {
 		byte[] resp = null;
 		try {
