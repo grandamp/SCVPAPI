@@ -15,13 +15,21 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 
 import org.bouncycastle.asn1.ASN1Boolean;
+import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Object;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.ASN1Primitive;
+import org.bouncycastle.asn1.ASN1SequenceParser;
+import org.bouncycastle.asn1.ASN1StreamParser;
+import org.bouncycastle.asn1.DERObjectIdentifier;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERUTF8String;
+import org.bouncycastle.asn1.cms.CMSObjectIdentifiers;
+import org.bouncycastle.asn1.cms.ContentInfoParser;
+import org.bouncycastle.asn1.cms.SignedData;
+import org.bouncycastle.asn1.cms.SignedDataParser;
 import org.bouncycastle.asn1.x509.Certificate;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.keysupport.bc.scvp.asn1.CVRequest;
@@ -226,7 +234,7 @@ public class SCVPRequestBuilder {
 		builder.generateNonce(16);
 		SCVPRequest req = builder.buildRequest();
 		byte[] rawReq = req.toASN1Primitive().getEncoded();
-		byte[] resp = builder.sendSCVPRequestPOST("REMOVED", rawReq);
+		byte[] resp = builder.sendSCVPRequestPOST("https://foo.bar/", rawReq);
 		
 		/*
 		 * We will save off the request and response for analysis as we develop.
@@ -251,6 +259,27 @@ public class SCVPRequestBuilder {
 		 * from the service, we had better get to cracking on parsing the response
 		 * and validating the signature!
 		 */
+		if (resp != null) {
+			ASN1StreamParser streamParser = new ASN1StreamParser(resp); 
+			Object object = streamParser.readObject(); 
+			if (object instanceof ASN1SequenceParser) { 
+				ASN1SequenceParser sequenceParser = (ASN1SequenceParser) object;
+				ContentInfoParser contentInfoParser = new ContentInfoParser(sequenceParser); 
+				ASN1ObjectIdentifier contentType = contentInfoParser.getContentType();
+				if (CMSObjectIdentifiers.signedData.equals(contentType)) {
+					object = streamParser.readObject();
+					SignedDataParser sdParser = SignedDataParser.getInstance(object);
+					System.out.println("This is signed data.");
+				} else {
+					//Error condition
+				}
+			} else { 
+				//Error condition
+			}
+		} else {
+			//Error condition
+		}
+		
 		System.out.println("Finished in " + (System.currentTimeMillis() - start) + " milliseconds.");
 		
 	}
@@ -274,14 +303,21 @@ public class SCVPRequestBuilder {
 			OutputStream os = con.getOutputStream();
 			os.write(req);
 			os.close();
-			ByteArrayOutputStream baos = new ByteArrayOutputStream();
-			byte[] chunk = new byte[4096];
-			int bytesRead;
-			InputStream stream = con.getInputStream();
-			while ((bytesRead = stream.read(chunk)) > 0) {
-				baos.write(chunk, 0, bytesRead);
+			/*
+			 * Lets make sure we are receiving an SCVP response...
+			 */
+			if (con.getContentType().equalsIgnoreCase("application/scvp-cv-response")) {
+				ByteArrayOutputStream baos = new ByteArrayOutputStream();
+				byte[] chunk = new byte[4096];
+				int bytesRead;
+				InputStream stream = con.getInputStream();
+				while ((bytesRead = stream.read(chunk)) > 0) {
+					baos.write(chunk, 0, bytesRead);
+				}
+				resp = baos.toByteArray();
+			} else {
+				//Error condition
 			}
-			resp = baos.toByteArray();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
