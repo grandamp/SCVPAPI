@@ -226,7 +226,7 @@ public class SCVPRequestBuilder {
 		builder.generateNonce(16);
 		SCVPRequest req = builder.buildRequest();
 		byte[] rawReq = req.toASN1Primitive().getEncoded();
-		byte[] resp = builder.sendSCVPRequestPOST("http://vs.treas.gov", rawReq);
+		byte[] resp = builder.sendSCVPRequestPOST("REMOVED", rawReq);
 		
 		/*
 		 * We will save off the request and response for analysis as we develop.
