@@ -3,46 +3,47 @@ package org.keysupport.bc.scvp;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
 import java.net.URLConnection;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.Provider;
 import java.security.Security;
+import java.security.Signature;
+import java.security.SignatureException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.util.Enumeration;
-import java.util.List;
+import java.text.ParseException;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
 
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.ASN1OctetStringParser;
 import org.bouncycastle.asn1.ASN1Primitive;
-import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.ASN1SequenceParser;
-import org.bouncycastle.asn1.ASN1Set;
 import org.bouncycastle.asn1.ASN1SetParser;
 import org.bouncycastle.asn1.ASN1StreamParser;
 import org.bouncycastle.asn1.ASN1TaggedObjectParser;
-import org.bouncycastle.asn1.DEROctetString;
-import org.bouncycastle.asn1.DERSetParser;
+import org.bouncycastle.asn1.ASN1UTCTime;
 import org.bouncycastle.asn1.cms.Attribute;
 import org.bouncycastle.asn1.cms.Attributes;
 import org.bouncycastle.asn1.cms.CMSObjectIdentifiers;
 import org.bouncycastle.asn1.cms.ContentInfoParser;
 import org.bouncycastle.asn1.cms.IssuerAndSerialNumber;
-import org.bouncycastle.asn1.cms.SignedDataParser;
 import org.bouncycastle.asn1.cms.SignerIdentifier;
 import org.bouncycastle.asn1.cms.SignerInfo;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.Certificate;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.keysupport.bc.scvp.asn1.CVResponse;
+import org.bouncycastle.util.Arrays;
 import org.keysupport.bc.scvp.asn1.CertChecks;
 import org.keysupport.bc.scvp.asn1.SCVPRequest;
 import org.keysupport.crypto.CipherEngine;
@@ -58,7 +59,7 @@ public class ExampleSCVPClient {
 	/*
 	 * Temporary main method for testing.
 	 */
-	public static void main(String args[]) throws CertificateException, IOException {
+	public static void main(String args[]) throws CertificateException, SCVPException {
 
 		/*
 		 * The intent is to change the provider for the
@@ -70,15 +71,29 @@ public class ExampleSCVPClient {
 		Security.addProvider(jceProvider);
 
 		long start = System.currentTimeMillis();
-		CertificateFactory cf = CertificateFactory.getInstance("X.509");
+		CertificateFactory cf;
+		try {
+			cf = CertificateFactory.getInstance("X.509", jceProvider.getName());
+		} catch (NoSuchProviderException e) {
+			throw new SCVPException("Problem with JCE Provider", e);
+		}
 		String certFile = "/tmp/eeCert";
-		X509Certificate endEntityCert = (X509Certificate) cf.generateCertificate(new FileInputStream(certFile));
-		ByteArrayInputStream bais = new ByteArrayInputStream(endEntityCert.getEncoded());
-		ASN1InputStream dis = new ASN1InputStream(bais);
-		ASN1Primitive dobj = dis.readObject();
-		dis.close();
-		Certificate eCert = Certificate.getInstance(dobj);
-		System.out.println(eCert.getSubject().toString());
+		X509Certificate endEntityCert;
+		ByteArrayInputStream bais;
+		Certificate eCert;
+		try {
+			endEntityCert = (X509Certificate) cf.generateCertificate(new FileInputStream(certFile));
+			bais = new ByteArrayInputStream(endEntityCert.getEncoded());
+			ASN1InputStream dis = new ASN1InputStream(bais);
+			ASN1Primitive dobj = dis.readObject();
+			dis.close();
+			eCert = Certificate.getInstance(dobj);
+		} catch (FileNotFoundException e) {
+			throw new SCVPException("Problem with client certificate", e);
+		} catch (IOException e) {
+			throw new SCVPException("Problem with client certificate", e);
+		}
+		System.out.println("Client Cert Subject:\t" + eCert.getSubject().toString());
 		
 		SCVPRequestBuilder builder = new SCVPRequestBuilder();
 		/*
@@ -138,29 +153,16 @@ public class ExampleSCVPClient {
 		 * Final assembly of the request.
 		 */
 		SCVPRequest req = builder.buildRequest();
-		byte[] rawReq = req.toASN1Primitive().getEncoded();
+		byte[] rawReq;
+		try {
+			rawReq = req.toASN1Primitive().getEncoded();
+		} catch (IOException e) {
+			throw new SCVPException("Problem with SCVP Request", e);
+		}
 		/*
 		 * Send the request to the SCVP service...
 		 */
 		byte[] resp = sendSCVPRequestPOST("https://foo.com/", rawReq);
-		
-		/*
-		 * We will save off the request and response for analysis as we develop.
-		 */
-		bais.reset();
-		FileOutputStream stream = new FileOutputStream("/tmp/request");
-		try {
-			stream.write(rawReq);
-		} finally {
-			stream.close();
-		}
-		bais.reset();
-		stream = new FileOutputStream("/tmp/response");
-		try {
-			stream.write(resp);
-		} finally {
-			stream.close();
-		}
 		
 		/*
 		 * Now that we ca create a successful DPV request and receive a response
@@ -172,15 +174,28 @@ public class ExampleSCVPClient {
 		ASN1ObjectIdentifier contentType = null;
 		if (resp != null) {
 			ASN1StreamParser streamParser = new ASN1StreamParser(resp); 
-			Object object = streamParser.readObject(); 
+			Object object;
+			try {
+				object = streamParser.readObject();
+			} catch (IOException e) {
+				throw new SCVPException("Problem parsing response from server", e);
+			} 
 			if (object instanceof ASN1SequenceParser) { 
 				cmsSeqPar = (ASN1SequenceParser) object;
-				contentInfoParser = new ContentInfoParser(cmsSeqPar); 
+				try {
+					contentInfoParser = new ContentInfoParser(cmsSeqPar);
+				} catch (IOException e) {
+					throw new SCVPException("Problem parsing CMS ContentInfo", e);
+				} 
 				contentType = contentInfoParser.getContentType();
 				if (CMSObjectIdentifiers.signedData.equals(contentType)) {
-					System.out.println(contentType.toString());
+					System.out.println("CMS Content Type:\t" + contentType.toString());
 					//If we are here, then this is a CMS Signed Data object
-					object = streamParser.readObject();
+					try {
+						object = streamParser.readObject();
+					} catch (IOException e) {
+						throw new SCVPException("Problem parsing response from server", e);
+					}
 					if (object instanceof ASN1SequenceParser) { 
 						/*
 						 * Now that we confirmed this is CMS Signed data
@@ -189,18 +204,40 @@ public class ExampleSCVPClient {
 						 */
 						ASN1SequenceParser cmsSdPar = (ASN1SequenceParser)object;
 						//version CMSVersion
-						ASN1Integer sdv = (ASN1Integer)cmsSdPar.readObject();
+						ASN1Integer sdv;
+						try {
+							sdv = (ASN1Integer)cmsSdPar.readObject();
+						} catch (IOException e) {
+							throw new SCVPException("Problem parsing CMS Version", e);
+						}
 						System.out.println("SignedData Version:\t" + sdv.toString());
 						//digestAlgorithms DigestAlgorithmIdentifiers
-						ASN1SetParser dASetPar = (ASN1SetParser)cmsSdPar.readObject();
-						AlgorithmIdentifier algId = AlgorithmIdentifier.getInstance(dASetPar.readObject());
+						ASN1SetParser dASetPar;
+						AlgorithmIdentifier algId;
+						try {
+							dASetPar = (ASN1SetParser)cmsSdPar.readObject();
+							algId = AlgorithmIdentifier.getInstance(dASetPar.readObject());
+						} catch (IOException e) {
+							throw new SCVPException("Problem parsing digest algorithm identifier", e);
+						}
 						System.out.println("Digest Algorithm:\t" + algId.getAlgorithm().toString());
 						//encapContentInfo EncapsulatedContentInfo
-						ASN1SequenceParser eCInfoPar = (ASN1SequenceParser)cmsSdPar.readObject();
-						ASN1ObjectIdentifier eContentType = (ASN1ObjectIdentifier)eCInfoPar.readObject();
-						System.out.println("Encap Cont Type:\t" + eContentType.toString());
-						ASN1TaggedObjectParser eContent = (ASN1TaggedObjectParser)eCInfoPar.readObject();
-						ASN1OctetString cVResponse = (ASN1OctetString)eContent.getObjectParser(0, true).toASN1Primitive();
+						ASN1SequenceParser eCInfoPar;
+						ASN1ObjectIdentifier eContentType;
+						ASN1TaggedObjectParser eContent;
+						ASN1OctetString cVResponse;
+						try {
+							eCInfoPar = (ASN1SequenceParser)cmsSdPar.readObject();
+							eContentType = (ASN1ObjectIdentifier)eCInfoPar.readObject();
+							System.out.println("Encap Cont Type:\t" + eContentType.toString());
+							eContent = (ASN1TaggedObjectParser)eCInfoPar.readObject();
+							cVResponse = (ASN1OctetString)eContent.getObjectParser(0, true).toASN1Primitive();
+						} catch (IOException e) {
+							throw new SCVPException("Problem parsing EncapsulatedContentInfo", e);
+						}
+						/*
+						 * Digest the object bytes for signature validation
+						 */
 						byte[] cVRespBytes = cVResponse.getOctets();
 						byte[] digest = null;
 						/*
@@ -222,20 +259,28 @@ public class ExampleSCVPClient {
 							 */
 							digest = DigestEngine.sHA1Sum(cVRespBytes, jceProvider.getName());
 						} else {
-							//Error Condition
+							throw new SCVPException("Unexpected Digest Algorithm: " + algId.getAlgorithm().getId());
 						}
 						System.out.println("CVResponse Digest:\t" + DataUtil.byteArrayToString(digest));
-						/*
-						 * Confirm the above is a cvResponse...  Then...
-						 * TODO:  Digest the object bytes for signature validation
-						 */
 						//certificates [0] IMPLICIT CertificateSet OPTIONAL
-						ASN1TaggedObjectParser certSet = (ASN1TaggedObjectParser)cmsSdPar.readObject();
-						Certificate cvSigner = Certificate.getInstance(certSet.getObjectParser(0, true).toASN1Primitive());
-						System.out.println("Signer:\t" + cvSigner.getSubject().toString());
+						ASN1TaggedObjectParser certSet;
+						Certificate cvSigner;
+						try {
+							certSet = (ASN1TaggedObjectParser)cmsSdPar.readObject();
+							cvSigner = Certificate.getInstance(certSet.getObjectParser(0, true).toASN1Primitive());
+						} catch (IOException e) {
+							throw new SCVPException("Error parsing SCVP Signer in CMS", e);
+						}
+						System.out.println("Signer Subject:\t\t" + cvSigner.getSubject().toString());
 						//SignerInfos ::= SET OF SignerInfo
-						ASN1SetParser sInfosPar = (ASN1SetParser)cmsSdPar.readObject();
-						SignerInfo sInfo =  SignerInfo.getInstance(sInfosPar.readObject().toASN1Primitive());
+						ASN1SetParser sInfosPar;
+						SignerInfo sInfo;
+						try {
+							sInfosPar = (ASN1SetParser)cmsSdPar.readObject();
+							sInfo =  SignerInfo.getInstance(sInfosPar.readObject().toASN1Primitive());
+						} catch (IOException e) {
+							throw new SCVPException("Error parsing SignerInfo", e);
+						}
 						SignerIdentifier sID = sInfo.getSID();
 						IssuerAndSerialNumber iSn = IssuerAndSerialNumber.getInstance(sID);
 						if (iSn.equals(new IssuerAndSerialNumber(cvSigner))) {
@@ -245,20 +290,106 @@ public class ExampleSCVPClient {
 							 * the digest of (and reference to) a CVResponse, and the encrypted
 							 * value (signature).  Parse and validate the signature...
 							 */
-							System.out.println("SignerInfo and Cert Match!");
+							System.out.println("Cert matches SI:\tTRUE");
 							AlgorithmIdentifier sIAlgId = sInfo.getDigestAlgorithm();
 							System.out.println("SI Digest Algorithm:\t" + sIAlgId.getAlgorithm().toString());
 							Attributes sIAA = Attributes.getInstance(sInfo.getAuthenticatedAttributes());
+							Attribute siContentType = null;
+							Attribute siSigningTime = null;
+							Attribute siMessageDigest = null;
 							for (Attribute a: sIAA.getAttributes()) {
-								System.out.println(a.getAttrType() + ":" + DataUtil.byteArrayToString(a.getAttrValues().getEncoded()));
-								
+								if (a.getAttrType().equals(new ASN1ObjectIdentifier("1.2.840.113549.1.9.3"))) {
+									siContentType = a;
+								}
+								if (a.getAttrType().equals(new ASN1ObjectIdentifier("1.2.840.113549.1.9.5"))) {
+									siSigningTime = a;
+								}
+								if (a.getAttrType().equals(new ASN1ObjectIdentifier("1.2.840.113549.1.9.4"))) {
+									siMessageDigest = a;
+								}
+							}
+							/*
+							 * Make sure the SignerInfo has all that we expect, and lets validate
+							 * the data.
+							 * 
+							 * -ContentType:  Make sure it is an SCVP Response
+							 * -SigningTime:  We use a nonce, ensure it was signed within the past minute
+							 * -MessageDigest:  This must match the digest of the CVResponse
+							 */
+							if (siContentType != null && siSigningTime != null && siMessageDigest != null) {
+								ASN1ObjectIdentifier siCT = (ASN1ObjectIdentifier)siContentType.getAttrValues().getObjectAt(0);
+								if (siCT.equals(new ASN1ObjectIdentifier("1.2.840.113549.1.9.16.1.11"))) {
+									System.out.println("SignerInfo ContentType:\tid-ct-scvp-psResponse");
+								} else {
+									throw new SCVPException("Unexpected Content Type: " + siCT.getId());
+								}
+								Calendar currentTime = Calendar.getInstance();
+								ASN1UTCTime claimSignTime = (ASN1UTCTime)siSigningTime.getAttrValues().getObjectAt(0);
+								Calendar signingTime = new GregorianCalendar();
+								try {
+									signingTime.setTime(claimSignTime.getAdjustedDate());
+								} catch (ParseException e) {
+									throw new SCVPException("Error parsing SigningTime", e);
+								}
+								System.out.println("Current Time:\t\t" + currentTime.getTime().toString());
+								System.out.println("Signing Time:\t\t" + signingTime.getTime().toString());
+								Calendar minBefore = new GregorianCalendar();
+								Calendar minAfter = new GregorianCalendar();
+								minBefore.add(Calendar.MINUTE, -1);
+								minAfter.add(Calendar.MINUTE, 1);
+								System.out.println("Minute Before:\t\t" + minBefore.getTime().toString());
+								System.out.println("Minute After:\t\t" + minAfter.getTime().toString());
+								if (!(currentTime.before(minBefore) || currentTime.after(minAfter))) {
+									System.out.println("Signing Timeframe:\tAcceptable");
+								} else {
+									throw new SCVPException("Unacceptable Signing Time: " + claimSignTime.getAdjustedTime());
+								}
+								ASN1OctetString claimDigestOS = (ASN1OctetString)siMessageDigest.getAttrValues().getObjectAt(0);
+								byte[] claimDigest = claimDigestOS.getOctets();
+								System.out.println("Claimed Digest:\t\t" + DataUtil.byteArrayToString(claimDigest));
+								if (Arrays.areEqual(digest, claimDigest)) {
+									System.out.println("Calc and Claim Digest:\tMatch");
+								} else {
+									throw new SCVPException("SignerInfo Message Digest (" + DataUtil.byteArrayToString(claimDigest) + ") does is not equal to actual digest (" + DataUtil.byteArrayToString(digest) + ")");
+								}
+							} else {
+								throw new SCVPException("SignerInfo does not include requred Authenticated attributes");
 							}
 							AlgorithmIdentifier sigAlg = sInfo.getDigestEncryptionAlgorithm();
-							System.out.println("Signature Algo:\t" + sigAlg.getAlgorithm().getId());
 							byte[] sigBits = sInfo.getEncryptedDigest().getOctets();
-							System.out.println("Signature Bytes:\t" + sigBits.length * Byte.SIZE);
-							//TODO:  Continue...
-							boolean sigMatch = true;
+							String sigAlgName = CipherEngine.getSigningAlgorithm(sIAlgId.getAlgorithm(), sigAlg.getAlgorithm());
+							System.out.println("Signature Algorithm:\t" + sigAlgName);
+							System.out.println("Sig Length (bits):\t" + sigBits.length * Byte.SIZE);
+							Signature signature = null;
+							try {
+								signature = Signature.getInstance(sigAlgName, jceProvider.getName());
+							} catch (NoSuchAlgorithmException
+									| NoSuchProviderException e) {
+								throw new SCVPException("Problem verifing signature", e);
+							}
+							InputStream in;
+							try {
+								in = new ByteArrayInputStream(cvSigner.getEncoded());
+							} catch (IOException e) {
+								throw new SCVPException("Error parsing SCVP Signer Certificate", e);
+							}
+							X509Certificate cvSignerCert = (X509Certificate)cf.generateCertificate(in);
+							try {
+								signature.initVerify(cvSignerCert);
+							} catch (InvalidKeyException e) {
+								throw new SCVPException("Problem parsing SCVP Signer public key", e);
+							}
+							try {
+								signature.update(sIAA.getEncoded());
+							} catch (SignatureException | IOException e) {
+								throw new SCVPException("Problem with SCVP Signature validation", e);
+							}
+							boolean sigMatch = false;
+							try {
+								sigMatch = signature.verify(sigBits);
+							} catch (SignatureException e) {
+								throw new SCVPException("Invalid SCVP Signature: Signature Validation Failed", e);
+							}
 							if (sigMatch) {
 								/*
 								 * Now we will process the CVResponse, verify the response
@@ -268,41 +399,31 @@ public class ExampleSCVPClient {
 								 * for signature validation).
 								 */
 								ASN1StreamParser cvRespOs = new ASN1StreamParser(cVRespBytes);
-								ASN1SequenceParser cvResp = (ASN1SequenceParser)cvRespOs.readObject();
-								//TODO: Delete KSJava imports when done
-								System.out.println(DataUtil.byteArrayToString(cVRespBytes));
+								try {
+									ASN1SequenceParser cvResp = (ASN1SequenceParser)cvRespOs.readObject();
+								} catch (IOException e) {
+									throw new SCVPException("Error parsing CVResponse", e);
+								}
+								System.out.println("CVResponse Bytes:\t" + DataUtil.byteArrayToString(cVRespBytes));
 								//TODO:  Proceed to decode the response...
-								System.out.println(cvResp.readObject().toString());
-								System.out.println(cvResp.readObject().toString());
-								System.out.println(cvResp.readObject().toString());
-								System.out.println(cvResp.readObject().toString());
-								System.out.println(cvResp.readObject().toString());
-								System.out.println(cvResp.readObject().toString());
-								System.out.println(cvResp.readObject().toString());
-								System.out.println(cvResp.readObject().toString());
-								System.out.println(cvResp.readObject().toString());
-								System.out.println(cvResp.readObject().toString());
-								System.out.println(cvResp.readObject().toString());
-								System.out.println(cvResp.readObject().toString());
 
 							} else {
-								//Error condition
+								throw new SCVPException("Invalid SCVP Signature: Signature Validation Failed");
 							}
 						} else {
-							//Error condition
+							throw new SCVPException("The SignerIdentifier and Signing Certificate do not match");
 						}
-						
 					} else {
-						//Error condition
+						throw new SCVPException("Response from the server is not a CMS message");
 					}
 				} else {
-					//Error condition
+					throw new SCVPException("Response from the server is not a CMS SignedData message");
 				}
 			} else { 
-				//Error condition
+				throw new SCVPException("Response from the server is not a CMS SignedData message");
 			}
 		} else {
-			//Error condition
+			throw new SCVPException("Response from the server is not a CMS SignedData message");
 		}
 //		if (sdParser != null) {
 //			System.out.println("SD Parser not null.");
@@ -489,7 +610,7 @@ public class ExampleSCVPClient {
 				}
 				resp = baos.toByteArray();
 			} else {
-				//Error condition
+				//TODO: Error condition
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
