@@ -7,6 +7,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.math.BigInteger;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.InvalidKeyException;
@@ -57,39 +58,65 @@ import org.keysupport.util.DataUtil;
 
 public class ExampleSCVPClient {
 
-	public ExampleSCVPClient() {
-		// TODO Auto-generated constructor stub
+	private Provider jceProvider = null;
+	private byte[] fullRequest = null;
+	private byte[] fullResponse = null;
+
+	public ExampleSCVPClient(Provider jceProvider) {
+		this.jceProvider = jceProvider;
 	}
 
-	/*
-	 * Temporary main method for testing.
-	 */
-	public static void main(String args[]) throws SCVPException {
+	public static void usage() {
+		System.out.println("usage:  ExampleSCVPClient <scvp_url> <certificate_file>");
+	}
 
+	public static void main(String args[]) {
+		
 		/*
 		 * The intent is to change the provider for the cryptographic
 		 * operations. I.e., a FIPS provider if needed. For now, we will use the
 		 * BouncyCastle API since that is what we use for the ASN.1
 		 */
+		if (args.length != 2) {
+			usage();
+			return;
+		}
 		Provider jceProvider = new BouncyCastleProvider();
 		Security.addProvider(jceProvider);
-
-		long start = System.currentTimeMillis();
-		CertificateFactory cf;
-		try {
-			cf = CertificateFactory.getInstance("X.509", jceProvider.getName());
-		} catch (NoSuchProviderException e) {
-			throw new SCVPException("Problem with JCE Provider", e);
-		} catch (CertificateException e) {
-			throw new SCVPException("Problem with JCE Provider", e);
-		}
-		String certFile = "/tmp/eeCert";
+		ExampleSCVPClient client = new ExampleSCVPClient(jceProvider);
+		String scvpUrl = args[0];
+		String certFile = args[1];
+		
 		X509Certificate endEntityCert;
+		try {
+
+			CertificateFactory cf;
+				cf = CertificateFactory.getInstance("X.509", jceProvider.getName());
+			endEntityCert = (X509Certificate) cf
+					.generateCertificate(new FileInputStream(certFile));
+
+			if (client.validate(scvpUrl, endEntityCert)) {
+				System.out.println("Certificate validated successfully.");
+			} else {
+				System.out.println("Certificate not valid.");
+			}
+		} catch (SCVPException e) {
+			System.out.println("There was a problem: " + e.getMessage());
+		} catch (NoSuchProviderException e) {
+			System.out.println("There was a problem with the JCE provider: " + e.getMessage());
+		} catch (CertificateException e) {
+			System.out.println("There was a problem with the certificate: " + e.getMessage());
+		} catch (FileNotFoundException e) {
+			System.out.println("No such file: " + certFile);
+		}
+	}
+
+	public boolean validate(String scvpServer, X509Certificate endEntityCert) throws SCVPException {
+		boolean certificateValid = false;
+		long start = System.currentTimeMillis();
 		ByteArrayInputStream bais;
 		Certificate eCert;
 		try {
-			endEntityCert = (X509Certificate) cf
-					.generateCertificate(new FileInputStream(certFile));
 			bais = new ByteArrayInputStream(endEntityCert.getEncoded());
 			ASN1InputStream dis = new ASN1InputStream(bais);
 			ASN1Primitive dobj = dis.readObject();
@@ -185,7 +212,17 @@ public class ExampleSCVPClient {
 		/*
 		 * Send the request to the SCVP service...
 		 */
-		byte[] resp = sendSCVPRequestPOST("https://foo.com/", rawReq);
+		byte[] resp = sendSCVPRequestPOST(scvpServer, rawReq);
+
+		certificateValid = validateSCVPResponse(resp);
+
+		System.out.println("Finished in "
+				+ (System.currentTimeMillis() - start) + " milliseconds.");
+		return certificateValid;
+	}
+
+	public boolean validateSCVPResponse(byte[] resp) throws SCVPException {
+		boolean certificateValid = false;
 
 		/*
 		 * Now that we ca create a successful DPV request and receive a response
@@ -485,8 +522,11 @@ public class ExampleSCVPClient {
 										"Error parsing SCVP Signer Certificate",
 										e);
 							}
+							CertificateFactory cf;
 							X509Certificate cvSignerCert;
 							try {
+								cf = CertificateFactory.getInstance("X.509",
+										jceProvider.getName());
 								cvSignerCert = (X509Certificate) cf
 										.generateCertificate(in);
 								signature.initVerify(cvSignerCert);
@@ -498,6 +538,9 @@ public class ExampleSCVPClient {
 								throw new SCVPException(
 										"Problem parsing SCVP Signing certificate",
 										e);
+							} catch (NoSuchProviderException e) {
+								throw new SCVPException(
+										"Problem with JCE Provider", e);
 							}
 							try {
 								signature.update(sIAA.getEncoded());
@@ -747,6 +790,9 @@ public class ExampleSCVPClient {
 												+ check.getId());
 										ASN1Integer status = (ASN1Integer) replyCheck
 												.getObjectAt(1);
+										if (status.getValue().equals(BigInteger.ZERO)) {
+											certificateValid = true; 
+										}
 										System.out.println("replyCheck("
 												+ rcNum + "):status:\t"
 												+ status.toString());
@@ -780,6 +826,10 @@ public class ExampleSCVPClient {
 									}
 									Object rcObj = replyObjects.getObjectAt(5);
 									System.out.println(rcObj);
+									/*
+									 * Return our validation boolean
+									 */
+									
 								} else {
 									throw new SCVPException(
 											"No ReplyObjects in CVResponse");
@@ -808,163 +858,7 @@ public class ExampleSCVPClient {
 			throw new SCVPException(
 					"Response from the server is not a CMS SignedData message");
 		}
-		// if (sdParser != null) {
-		// System.out.println("SD Parser not null.");
-		// ASN1Integer sdv = sdParser.getVersion();
-		// System.out.println("SignedData Version:\t" + sdv.toString());
-		// ASN1SetParser sdda = sdParser.getDigestAlgorithms();
-		// ASN1SequenceParser sddas = (ASN1SequenceParser)sdda.readObject();
-		// ASN1ObjectIdentifier digestAlg =
-		// (ASN1ObjectIdentifier)sddas.readObject();
-		// System.out.println("Digest Algorithm:\t" + digestAlg.toString());
-		// ASN1SetParser sdc = sdParser.getCertificates();
-		// ASN1SequenceParser sdcs = (ASN1SequenceParser)sdc.readObject();
-		// sdParser.getCrls();
-		// ContentInfoParser sdeci = sdParser.getEncapContentInfo();
-		//
-		// //System.out.println(contentInfoParser.getContentType().getId());
-		// //CVResponseParser cvResParse =
-		// CVResponseParser.getInstance(contentInfoParser.getContent(2));
-		// }
-		/*
-		 * Somewhat psudocode, but not. TODO: make it happen.
-		 * 
-		 * Let's say this is the cart before the horse...
-		 * 
-		 * To validate the response, we need the SCVP signer cert and the
-		 * request.
-		 * 
-		 * I.e., CVResponseVerifier
-		 * 
-		 * The response objects and artifacts will be populated by BC's notion
-		 * of "Parsers"
-		 * 
-		 * I.e., CVResponseParser, ReplyStatusParser, CertReplyParser, etc...
-		 * 
-		 * Scratch that. We have one big builder, we will have one big parser.
-		 */
-		// CVResponse cvResponse = cvResponse.getEncoded();
-		// if (cvResponse != null) {
-		// /*
-		// * verify that the response can be trusted
-		// */
-		// CVResponseVerifier verifier = new CVResponseVerifier(cvRequest,
-		// cvResponse);
-		// verifier.verify(signerCert);
-		//
-		// switch (cvResponse.getReplyStatus()) {
-		// case ReplyStatus.success: {
-		// /*
-		// * Bottom line, if the replyStatus is anything other
-		// * than ReplyStatus.success, then it is invalid...
-		// */
-		// valid = true;
-		// System.out.println("success");
-		// break;
-		// }
-		// case ReplyStatus.malformedPKC: {
-		// System.out.println("malformedPKC");
-		// break;
-		// }
-		// case ReplyStatus.malformedAC: {
-		// System.out.println("malformedAC");
-		// break;
-		// }
-		// case ReplyStatus.unavailableValidationTime: {
-		// System.out.println("unavailableValidationTime");
-		// break;
-		// }
-		// case ReplyStatus.referenceCertHashFail: {
-		// System.out.println("referenceCertHashFail");
-		// break;
-		// }
-		// case ReplyStatus.certPathConstructFail: {
-		// System.out.println("certPathConstructFail");
-		// break;
-		// }
-		// case ReplyStatus.certPathNotValid: {
-		// System.out.println("certPathNotValid");
-		// break;
-		// }
-		// case ReplyStatus.certPathNotValidNow: {
-		// System.out.println("certPathNotValidNow");
-		// break;
-		// }
-		// case ReplyStatus.wantBackUnsatisfied: {
-		// System.out.println("wantBackUnsatisfied");
-		// break;
-		// }
-		// default: {
-		// System.out.println("Unknown");
-		// break;
-		// }
-		// }
-		// /*
-		// * sample of data's extraction from the CvResponse
-		// */
-		// for (CertReply certReply : cvResponse.getReplyObjects()) {
-		// /*
-		// * If validation error, print
-		// */
-		// List<String> errors = certReply.getValidationErrors();
-		// if (errors != null && !errors.isEmpty()) {
-		// System.out.print("ValidationErrors: ");
-		// for (String errOid : errors) {
-		// if (errOid.equalsIgnoreCase("1.3.6.1.5.5.7.19.3.1")) {
-		// System.out
-		// .print("1.3.6.1.5.5.7.19.3.1 (id-bvae-expired) ");
-		// } else if (errOid
-		// .equalsIgnoreCase("1.3.6.1.5.5.7.19.3.2")) {
-		// System.out
-		// .print("1.3.6.1.5.5.7.19.3.2 (id-bvae-notYetValid) ");
-		// } else if (errOid
-		// .equalsIgnoreCase("1.3.6.1.5.5.7.19.3.3")) {
-		// System.out
-		// .print("1.3.6.1.5.5.7.19.3.3 (id-bvae-wrongTrustAnchor) ");
-		// } else if (errOid
-		// .equalsIgnoreCase("1.3.6.1.5.5.7.19.3.4")) {
-		// System.out
-		// .print("1.3.6.1.5.5.7.19.3.4 (id-bvae-noValidCertPath) ");
-		// } else if (errOid
-		// .equalsIgnoreCase("1.3.6.1.5.5.7.19.3.5")) {
-		// System.out
-		// .print("1.3.6.1.5.5.7.19.3.5 (id-bvae-revoked) ");
-		// } else if (errOid
-		// .equalsIgnoreCase("1.3.6.1.5.5.7.19.3.6")) {
-		// System.out
-		// .print("1.3.6.1.5.5.7.19.3.6 (id-bvae-6) ");
-		// } else if (errOid
-		// .equalsIgnoreCase("1.3.6.1.5.5.7.19.3.7")) {
-		// System.out
-		// .print("1.3.6.1.5.5.7.19.3.7 (id-bvae-7) ");
-		// } else if (errOid
-		// .equalsIgnoreCase("1.3.6.1.5.5.7.19.3.8")) {
-		// System.out
-		// .print("1.3.6.1.5.5.7.19.3.8 (id-bvae-8) ");
-		// } else if (errOid
-		// .equalsIgnoreCase("1.3.6.1.5.5.7.19.3.9")) {
-		// System.out
-		// .print("1.3.6.1.5.5.7.19.3.9 (id-bvae-invalidKeyPurpose) ");
-		// } else if (errOid
-		// .equalsIgnoreCase("1.3.6.1.5.5.7.19.3.10")) {
-		// System.out
-		// .print("1.3.6.1.5.5.7.19.3.10 (id-bvae-invalidKeyUsage) ");
-		// } else if (errOid
-		// .equalsIgnoreCase("1.3.6.1.5.5.7.19.3.11")) {
-		// System.out
-		// .print("1.3.6.1.5.5.7.19.3.11 (id-bvae-invalidCertPolicy) ");
-		// } else {
-		// System.out.print(errOid + " (unknown) ");
-		// }
-		// }
-		// System.out.println();
-		// }
-		// }
-		// } else {
-		// //cvResponse was null!
-		// }
-		System.out.println("Finished in "
-				+ (System.currentTimeMillis() - start) + " milliseconds.");
+		return certificateValid;
 	}
 
 	/*
