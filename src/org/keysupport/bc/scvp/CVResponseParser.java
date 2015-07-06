@@ -108,6 +108,7 @@ public class CVResponseParser {
 		}
 		if (o instanceof ASN1SequenceParser) {
 			return new CVResponseParser((ASN1SequenceParser) o);
+			
 		}
 		throw new IOException("unknown object encountered: "
 				+ o.getClass().getName());
@@ -118,7 +119,7 @@ public class CVResponseParser {
 		this._cvResponseVersion = (ASN1Integer) seq.readObject();
 		this._serverConfigurationID = (ASN1Integer) seq.readObject();
 		this._producedAt = (ASN1GeneralizedTime) seq.readObject();
-		//this._responseStatus = (ResponseStatus) seq.readObject();
+		this._responseStatus = ResponseStatus.getInstance((ASN1SequenceParser)seq.readObject());
 		_nextObject = _seq.readObject();
 		if (_nextObject instanceof ASN1SequenceParser) {
 			System.out.println("Sequence Parser!");

@@ -161,4 +161,20 @@ public class SCVPRequestBuilder {
 		return encapRequest;
 	}
 
+	public SCVPRequest getEncapRequest() {
+		return encapRequest;
+	}
+	
+	public CVRequest getRequest() {
+		return request;
+	}
+	
+	public Query getQuery() {
+		return query;
+	}
+	
+	public ValidationPolicy getValidationPolicy() {
+		return validationPolicy;
+	}
+
 }
