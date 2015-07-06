@@ -7,7 +7,7 @@ To give this API a try without building/coding, simply:
 
 * download the Jar: https://github.com/grandamp/SCVPAPI/raw/master/SCVPAPI.jar
 * -then-
-* `java -jar <scvp_url> <certificate_filename> <polOID> <polOID> <polOID> <polOID> ...`
+* `java -jar SCVPAPI.jar <scvp_url> <certificate_filename> <polOID> <polOID> <polOID> <polOID> ...`
 
 While this project uses the BouncyCastle Java API, it is primarily for ASN.1 processing of the objects used
 within the protocol.  The example also uses the BouncyCastle API for the cryptographic operations, but is

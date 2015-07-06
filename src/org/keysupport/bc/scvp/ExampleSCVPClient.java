@@ -69,7 +69,7 @@ public class ExampleSCVPClient {
 	}
 
 	public static void usage() {
-		System.out.println("usage:  java -jar <scvp_url> <certificate_filename> <polOID> <polOID> <polOID> <polOID> ...");
+		System.out.println("usage:  java -jar SCVPAPI.jar <scvp_url> <certificate_filename> <polOID> <polOID> <polOID> <polOID> ...");
 	}
 
 	public static void main(String args[]) {
