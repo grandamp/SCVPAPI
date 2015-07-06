@@ -3,6 +3,12 @@ An Open Source SCVP API for Bouncy Castle
 
 The intent of this project is to build a minimum viable SCVP client using a recent BouncyCastle API in Java.
 
+To give this API a try without building/coding, simply:
+
+* download the Jar: https://github.com/grandamp/SCVPAPI/raw/master/SCVPAPI.jar
+* -then-
+* `java -jar <scvp_url> <certificate_filename> <polOID> <polOID> <polOID> <polOID> ...`
+
 While this project uses the BouncyCastle Java API, it is primarily for ASN.1 processing of the objects used
 within the protocol.  The example also uses the BouncyCastle API for the cryptographic operations, but is
 being designed so that any cryptographic operation may be easily replaced using a different JCE provider.

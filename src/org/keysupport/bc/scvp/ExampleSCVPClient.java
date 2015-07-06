@@ -21,9 +21,11 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Enumeration;
 import java.util.GregorianCalendar;
+import java.util.List;
 
 import org.bouncycastle.asn1.ASN1Enumerated;
 import org.bouncycastle.asn1.ASN1GeneralizedTime;
@@ -67,7 +69,7 @@ public class ExampleSCVPClient {
 	}
 
 	public static void usage() {
-		System.out.println("usage:  ExampleSCVPClient <scvp_url> <certificate_file>");
+		System.out.println("usage:  java -jar <scvp_url> <certificate_filename> <polOID> <polOID> <polOID> <polOID> ...");
 	}
 
 	public static void main(String args[]) {
@@ -77,7 +79,7 @@ public class ExampleSCVPClient {
 		 * operations. I.e., a FIPS provider if needed. For now, we will use the
 		 * BouncyCastle API since that is what we use for the ASN.1
 		 */
-		if (args.length != 2) {
+		if (args.length <= 2) {
 			usage();
 			return;
 		}
@@ -86,7 +88,21 @@ public class ExampleSCVPClient {
 		ExampleSCVPClient client = new ExampleSCVPClient(jceProvider);
 		String scvpUrl = args[0];
 		String certFile = args[1];
-		
+		int i=2;
+		List<String> policyOids = new ArrayList<String>();
+		while (i != args.length) {
+			/*
+			 * Syntax check for the OIDS
+			 */
+			try {
+				ASN1ObjectIdentifier id = new ASN1ObjectIdentifier(args[i]);
+				System.out.println("Including Policy: " + id.getId());
+				policyOids.add(id.toString());
+			} catch(IllegalArgumentException e) {
+				System.out.println("Invalid Policy OID:" + args[i] + ":" + e.getLocalizedMessage());
+			}
+			i++;
+		}
 		X509Certificate endEntityCert;
 		try {
 
@@ -95,7 +111,7 @@ public class ExampleSCVPClient {
 			endEntityCert = (X509Certificate) cf
 					.generateCertificate(new FileInputStream(certFile));
 
-			if (client.validate(scvpUrl, endEntityCert)) {
+			if (client.validate(scvpUrl, endEntityCert, policyOids)) {
 				System.out.println("Certificate validated successfully.");
 			} else {
 				System.out.println("Certificate not valid.");
@@ -111,7 +127,7 @@ public class ExampleSCVPClient {
 		}
 	}
 
-	public boolean validate(String scvpServer, X509Certificate endEntityCert) throws SCVPException {
+	public boolean validate(String scvpServer, X509Certificate endEntityCert, List<String> policyOids) throws SCVPException {
 		boolean certificateValid = false;
 		long start = System.currentTimeMillis();
 		ByteArrayInputStream bais;
@@ -157,24 +173,10 @@ public class ExampleSCVPClient {
 		 * http://csrc.nist.gov/groups/ST/crypto_apps_infra/csor/pki_registration
 		 * .html
 		 */
-		builder.addUserPolicy(new ASN1ObjectIdentifier(
-				"2.16.840.1.101.3.2.1.3.13")); // Common-Auth
-		builder.addUserPolicy(new ASN1ObjectIdentifier(
-				"2.16.840.1.101.3.2.1.3.18")); // PIVI-Auth
-		builder.addUserPolicy(new ASN1ObjectIdentifier(
-				"2.16.840.1.101.3.2.1.3.26")); // SHA1-Auth
-		builder.addUserPolicy(new ASN1ObjectIdentifier(
-				"2.16.840.1.101.3.2.1.3.7")); // Common-HW
-		builder.addUserPolicy(new ASN1ObjectIdentifier(
-				"2.16.840.1.101.3.2.1.3.18")); // PIVI-HW
-		builder.addUserPolicy(new ASN1ObjectIdentifier(
-				"2.16.840.1.101.3.2.1.3.24")); // SHA1-HW
-		builder.addUserPolicy(new ASN1ObjectIdentifier(
-				"2.16.840.1.101.3.2.1.3.16")); // Common-High
-		builder.addUserPolicy(new ASN1ObjectIdentifier(
-				"2.16.840.1.101.3.2.1.3.12")); // FBCA Medium-HW
-		builder.addUserPolicy(new ASN1ObjectIdentifier(
-				"2.16.840.1.101.3.2.1.3.4")); // FBCA High
+		for (String s: policyOids) {
+			builder.addUserPolicy(new ASN1ObjectIdentifier(s));
+		}
+		//2.16.840.1.101.3.2.1.3.13,2.16.840.1.101.3.2.1.3.18,2.16.840.1.101.3.2.1.3.26,2.16.840.1.101.3.2.1.3.7,2.16.840.1.101.3.2.1.3.24,2.16.840.1.101.3.2.1.3.16,2.16.840.1.101.3.2.1.3.12,2.16.840.1.101.3.2.1.3.4
 		/*
 		 * These are the additional RFC-5280 inputs:
 		 * 
@@ -194,7 +196,7 @@ public class ExampleSCVPClient {
 		 * This is based off of the GSA SCVP Request/Response Profile
 		 */
 		builder.setRequestorName("URN:ValidationService:TEST:SCVPExample");
-		builder.setRequestorText("LOG;HI;MAJ;OTH;APP,HTTP://FOO.GOV/,-");
+		builder.setRequestorText("LOG;HI;MAJ;OTH;APP,https://github.com/grandamp/SCVPAPI/,-");
 		/*
 		 * Adding a 16 byte nonce
 		 */
@@ -209,11 +211,13 @@ public class ExampleSCVPClient {
 		} catch (IOException e) {
 			throw new SCVPException("Problem with SCVP Request", e);
 		}
+		this.fullRequest = rawReq;
 		/*
 		 * Send the request to the SCVP service...
 		 */
 		byte[] resp = sendSCVPRequestPOST(scvpServer, rawReq);
-
+		this.fullResponse = resp;
+		
 		certificateValid = validateSCVPResponse(resp);
 
 		System.out.println("Finished in "
@@ -903,6 +907,20 @@ public class ExampleSCVPClient {
 			throw new SCVPException("Problem communicating with SCVP server", e);
 		}
 		return resp;
+	}
+
+	/**
+	 * @return the fullRequest
+	 */
+	public byte[] getFullRequest() {
+		return fullRequest;
+	}
+
+	/**
+	 * @return the fullResponse
+	 */
+	public byte[] getFullResponse() {
+		return fullResponse;
 	}
 
 }
