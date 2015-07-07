@@ -1,17 +1,18 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<project default="create_run_jar" name="Create Runnable Jar for Project SCVPAPI with libraries in sub-folder">
+<project default="create_run_jar" name="Create Runnable Jar for Project SCVPAPI with Jar-in-Jar Loader">
     <!--this file was created by Eclipse Runnable JAR Export Wizard-->
     <!--ANT 1.7 is required                                        -->
     <target name="create_run_jar">
         <jar destfile="/home/tejohnson/workspace/SCVPAPI/SCVPAPI.jar">
             <manifest>
-                <attribute name="Main-Class" value="org.keysupport.bc.scvp.ExampleSCVPClient"/>
-                <attribute name="Class-Path" value=". SCVPAPI_lib/bcprov-jdk15on-1.51.jar"/>
+                <attribute name="Main-Class" value="org.eclipse.jdt.internal.jarinjarloader.JarRsrcLoader"/>
+                <attribute name="Rsrc-Main-Class" value="org.keysupport.bc.scvp.ExampleSCVPClient"/>
+                <attribute name="Class-Path" value="."/>
+                <attribute name="Rsrc-Class-Path" value="./ bcprov-jdk15on-1.51.jar"/>
             </manifest>
+            <zipfileset src="jar-in-jar-loader.zip"/>
             <fileset dir="/home/tejohnson/workspace/SCVPAPI/bin"/>
+            <zipfileset dir="/home/tejohnson/workspace/SCVPAPI/lib" includes="bcprov-jdk15on-1.51.jar"/>
         </jar>
-        <delete dir="/home/tejohnson/workspace/SCVPAPI/SCVPAPI_lib"/>
-        <mkdir dir="/home/tejohnson/workspace/SCVPAPI/SCVPAPI_lib"/>
-        <copy file="/home/tejohnson/workspace/SCVPAPI/lib/bcprov-jdk15on-1.51.jar" todir="/home/tejohnson/workspace/SCVPAPI/SCVPAPI_lib"/>
     </target>
 </project>
