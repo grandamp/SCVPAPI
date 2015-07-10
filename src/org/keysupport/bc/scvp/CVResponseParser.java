@@ -4,21 +4,21 @@ import java.io.IOException;
 
 import org.bouncycastle.asn1.ASN1GeneralizedTime;
 import org.bouncycastle.asn1.ASN1Integer;
-import org.bouncycastle.asn1.ASN1OctetString;
+
 import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.ASN1SequenceParser;
-import org.bouncycastle.asn1.ASN1Set;
-import org.bouncycastle.asn1.ASN1SetParser;
-import org.bouncycastle.asn1.ASN1TaggedObjectParser;
-import org.bouncycastle.asn1.BERTags;
-import org.bouncycastle.asn1.DERUTF8String;
-import org.bouncycastle.asn1.cms.ContentInfoParser;
-import org.bouncycastle.asn1.x509.Extensions;
-import org.bouncycastle.asn1.x509.GeneralNames;
-import org.keysupport.bc.scvp.asn1.ReplyObjects;
-import org.keysupport.bc.scvp.asn1.RequestReference;
+
+
+
+
+
+
+
+
+
+
 import org.keysupport.bc.scvp.asn1.ResponseStatus;
-import org.keysupport.bc.scvp.asn1.ValidationPolicy;
+
 
 /**
  * Parser for SCVPResponse

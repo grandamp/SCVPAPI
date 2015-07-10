@@ -97,6 +97,24 @@ public class NISTeAuthPkiLoa {
 	 * 2.16.840.1.101.3.2.1.3.19 - PIVI-cardAuth
 	 * 2.16.840.1.101.3.2.1.3.27 - SHA1-cardAuth
 	 * </pre>
+	 * 
+	 * [note] This LOA is less actionable, because it specifies policy
+	 * identifiers for card authentication certificates. I.e., the certificates
+	 * are not issued to a human subscriber, but to a card.  The associated
+	 * private key to these certificates may be used without activation data.
+	 * I.e., can be used without a pin!
+	 * 
+	 * Further, 800-63-2 does not provide a specific set of OIDs beyond the card
+	 * authentication certificates, but states:
+	 * 
+	 * "At Level 2 agencies may use certificates issued under policies that have 
+	 * not been mapped by the Federal policy authority, but are determined to meet 
+	 * the Level 2 identify proofing, token and status reporting requirements. 
+	 * (For this evaluation, a strict compliance mapping should be used, rather
+	 * than the rough mapping used for the FPKI policies.)"
+	 * 
+	 * This implementation can not provide an actionable set of OIDs because the
+	 * author is unwilling to perform such policy/compliance mapping ;)
 	 */
 	public static final List<ASN1ObjectIdentifier> LOA2;
 	static {
@@ -123,4 +141,11 @@ public class NISTeAuthPkiLoa {
 		}
 		return strLoa;
 	}
+	
+	/*
+	 * TODO:  Add additional methods for each LOA, articulating the additional
+	 * RFC 5280 initial inputs, so that this class may be used to formulate the 
+	 * SCVP policy for each LOA.  I.e., requireExplicitPolicy, inhibitPolicyMapping,
+	 * inhibitAnyPolicy, etc.
+	 */
 }

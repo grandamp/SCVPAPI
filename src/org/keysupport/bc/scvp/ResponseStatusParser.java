@@ -2,7 +2,7 @@ package org.keysupport.bc.scvp;
 
 import java.io.IOException;
 
-import org.bouncycastle.asn1.ASN1Integer;
+
 import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.ASN1SequenceParser;
 import org.bouncycastle.asn1.DERUTF8String;

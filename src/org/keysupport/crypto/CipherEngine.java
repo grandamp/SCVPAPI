@@ -240,8 +240,6 @@ public class CipherEngine {
 	public static byte[] SCP0105SSKey(byte[] CARD_CNG, byte[] HOST_CNG,
 			byte[] key) {
 
-		// byte[] SKEY = null;
-
 		byte[] HAC = { CARD_CNG[4], CARD_CNG[5], CARD_CNG[6], CARD_CNG[7],
 				HOST_CNG[0], HOST_CNG[1], HOST_CNG[2], HOST_CNG[3],
 				CARD_CNG[0], CARD_CNG[1], CARD_CNG[2], CARD_CNG[3],
@@ -354,9 +352,6 @@ public class CipherEngine {
 
 		try {
 
-			// DESedeKeySpec ks = new DESedeKeySpec(key);
-			// SecretKeyFactory kf = SecretKeyFactory.getInstance("DESede");
-			// SecretKey sk = kf.generateSecret(ks);
 			Cipher c = Cipher.getInstance("DESede/ECB/NoPadding");
 			c.init(opmode, key);
 			ciphertext = c.doFinal(plaintext);

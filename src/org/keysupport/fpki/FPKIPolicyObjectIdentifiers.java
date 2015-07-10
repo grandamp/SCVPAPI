@@ -186,137 +186,179 @@ public interface FPKIPolicyObjectIdentifiers {
 	public static final ASN1ObjectIdentifier id_us_irs_securemail = treasury_policies.branch("6");
 
 
-/*	TODO: Finish the remainder of the CSOR
- * 
- * 	State Department Registered Objects
-	Seven objects have been registered to support the U.S. State Department PKI. The first object is an arc for State Department policies.
+	/*
+	 * State Department Registered Objects
+	 * Seven objects have been registered to support the U.S. State Department PKI. The first object is an arc for State Department policies.
+	 *
+	 *-- the State policy arc
+	 *
+	 * state-policies OBJECT IDENTIFIER ::= { csor-certpolicy 6 }
+	 */
+	public static final ASN1ObjectIdentifier state_policies = csor_certpolicy.branch("6");
 
-	-- the State policy arc
-	state-policies OBJECT IDENTIFIER ::= { csor-certpolicy 6 }
+	/*
+	 * -- the state policy OIDs
+	 *
+	 * The following objects are defined in the "United States Department of State X.509 Certificate Policy". (This document is currently not publicly available.)
+	 */
+	public static final ASN1ObjectIdentifier state_basic = state_policies.branch("1");
+	public static final ASN1ObjectIdentifier state_low = state_policies.branch("2");
+	public static final ASN1ObjectIdentifier state_moderate = state_policies.branch("3");
+	public static final ASN1ObjectIdentifier state_high = state_policies.branch("4");
 
-	-- the state policy OIDs
+	/*
+	 * The following objects have been assigned to this agency; however, we do not have the agency Certificate Profile associated with this OID.
+	 */
+	public static final ASN1ObjectIdentifier state_certpcy_mediumHardware = state_policies.branch("12");
+	public static final ASN1ObjectIdentifier state_certpcy_citizen_and_commerce = state_policies.branch("14");
+	public static final ASN1ObjectIdentifier state_certpcy_mediumDevice = state_policies.branch("37");
+	public static final ASN1ObjectIdentifier state_certpcy_mediumDeviceHardware = state_policies.branch("38");
 
-	The following objects are defined in the "United States Department of State X.509 Certificate Policy". (This document is currently not publicly available.)
+	/*
+	 * The following object is defined in the "Machine Readable Travel Document (MRTD) PKI X.509 Certificate Policy Version 1.1". (This document is currently not publicly available.)
+	 */
+	public static final ASN1ObjectIdentifier state_mrtd = state_policies.branch("100");
 
-	2.16.840.1.101.3.2.1.6.1	state-basic
-	2.16.840.1.101.3.2.1.6.2	state-low
-	2.16.840.1.101.3.2.1.6.3	state-moderate
-	2.16.840.1.101.3.2.1.6.4	state-high
-	The following objects have been assigned to this agency; however, we do not have the agency Certificate Profile associated with this OID.
+	/* Federal Deposit Insurance Corporation Registered Objects
+	 * Five objects have been registered to support the Federal Deposit Insurance Corporation PKI. The first object is an arc for FDIC policies.
+	 * 
+	 * -- the FDIC policy arc
+	 * 
+	 * fdic-policies OBJECT IDENTIFIER ::= { csor-certpolicy 7 }
+	 */
+	public static final ASN1ObjectIdentifier fdic_policies = csor_certpolicy.branch("7");
+	
+	/*
+	 * -- the fdic policy OIDs
+	 * 
+	 * The following four policies can be defined in the "Certificate Policy for the Federal Deposit Insurance Corporation" document.  (This document is currently not publicly available.)
+	 */
+	public static final ASN1ObjectIdentifier fdic_basic = fdic_policies.branch("1");
+	public static final ASN1ObjectIdentifier fdic_low = fdic_policies.branch("2");
+	public static final ASN1ObjectIdentifier fdic_moderate = fdic_policies.branch("3");
+	public static final ASN1ObjectIdentifier fdic_high = fdic_policies.branch("4");
 
-	2.16.840.1.101.3.2.1.6.12	state-certpcy-mediumHardware
-	2.16.840.1.101.3.2.1.6.14	state-certpcy-citizen-and-commerce
-	2.16.840.1.101.3.2.1.6.37	state-certpcy-mediumDevice
-	2.16.840.1.101.3.2.1.6.38	state-certpcy-mediumDeviceHardware
-	The following object is defined in the "Machine Readable Travel Document (MRTD) PKI X.509 Certificate Policy Version 1.1". (This document is currently not publicly available.)
+	/*
+	 * NFC (National Finance Center) Registered Objects
+	 * Four objects have been registered to support the USDA and NFC PKI. The first object is an arc for USDA-NFC policies.
+	 * 
+	 * -- the NFC policy arc
+	 *  nfc-policies OBJECT IDENTIFIER ::= { csor-certpolicy 8}
+	 */
+	public static final ASN1ObjectIdentifier nfc_policies = csor_certpolicy.branch("8");
 
-	2.16.840.1.101.3.2.1.6.100	state-mrtd
-	Back to Top
-	Federal Deposit Insurance Corporation Registered Objects
-	Five objects have been registered to support the Federal Deposit Insurance Corporation PKI. The first object is an arc for FDIC policies.
+	/*
+	 * -- the nfc policy OIDS
+	 * 
+	 * The following three policies are defined in the "United States Department of Agriculture and National Finance Center Public Key Infrastructure Certificate Policy"
+	 */
+	public static final ASN1ObjectIdentifier nfc_basicAssurance = nfc_policies.branch("1");
+	public static final ASN1ObjectIdentifier nfc_mediumAssurance = nfc_policies.branch("2");
+	public static final ASN1ObjectIdentifier nfc_highAssurance = nfc_policies.branch("3");
 
-	-- the FDIC policy arc
-	fdic-policies OBJECT IDENTIFIER ::= { csor-certpolicy 7 }
+	/*
+	 * Drug Enforcement Administration Registered Objects
+	 * Three objects have been registered to support the DEA PKI. The first object is an arc for DEA policies.
+	 * 
+	 * 	-- the DEA policy arc
+	 * dea-policies OBJECT IDENTIFIER ::= { csor-certpolicy 9}
+	 */
+	public static final ASN1ObjectIdentifier dea_policies = csor_certpolicy.branch("9");
 
-	-- the fdic policy OIDs
+	/*
+	 * -- the dea policy OIDS
+	 * 
+	 * The following policies have been assigned to this agency; however, we do not have the agency Certificate Profile associated with these OIDs.
+	 */
+	public static final ASN1ObjectIdentifier dea_csos_cp = dea_policies.branch("1");
+	public static final ASN1ObjectIdentifier dea_epcs_policy = dea_policies.branch("2");
 
-	The following four policies can be defined in the "Certificate Policy for the Federal Deposit Insurance Corporation" document.  (This document is currently not publicly available.)
+	/*
+	 * DOE (Department Of Energy) Registered Objects
+	 * Five objects have been registered to support the Department of Energy policies for PKI. The first object is an arc for DOE policies.
+	 * 
+	 * -- the DOE policy arc
+	 * doe-policies OBJECT IDENTIFIER ::= { csor-certpolicy 10}
+	 */
+	public static final ASN1ObjectIdentifier doe_policies = csor_certpolicy.branch("10");
 
-	2.16.840.1.101.3.2.1.7.1	fdic-basic
-	2.16.840.1.101.3.2.1.7.2	fdic-low
-	2.16.840.1.101.3.2.1.7.3	fdic-moderate
-	2.16.840.1.101.3.2.1.7.4	fdic-high
-	Back to Top
-	NFC (National Finance Center) Registered Objects
-	Four objects have been registered to support the USDA and NFC PKI. The first object is an arc for USDA-NFC policies.
+	/*
+	 * -- the doe policy OIDS
+	 * 
+	 * The following three policies are defined in the "Certificate Policy CP-1 for DOE Public Key Certificates in Unclassified"
+	 */
+	public static final ASN1ObjectIdentifier doe_basic = doe_policies.branch("1");
+	public static final ASN1ObjectIdentifier doe_medium = doe_policies.branch("2");
+	public static final ASN1ObjectIdentifier doe_high = doe_policies.branch("3");
 
-	-- the NFC policy arc
-	nfc-policies OBJECT IDENTIFIER ::= { csor-certpolicy 8}
+	/*
+	 * The policy below is defined in the "U.S. Department of Energy Public Key Infrastructure X.509 Certificate Policy" document.
+	 */
+	public static final ASN1ObjectIdentifier doe_medium_v2 = doe_policies.branch("4");
 
-	-- the nfc policy OIDS
+	/* 
+	 * DOL (Department Of Labor) Registered Objects
+	 * Three objects have been registered to support the Department of Labor policies for PKI. The first object is an arc for DOL policies.
+	 * 
+	 * -- the DOL policy arc
+	 * dol-policies OBJECT IDENTIFIER ::= { csor-certpolicy 11}
+	 */
+	public static final ASN1ObjectIdentifier dol_policies = csor_certpolicy.branch("11");
+	
+	/*
+	 * -- the dol policy OIDS
+	 *
+	 * These OIDs have been assigned to this agency; however, we do not have the agency Certificate Profile associated with these OIDs.
+	 */
+	public static final ASN1ObjectIdentifier dol_basic = dol_policies.branch("1");
+	public static final ASN1ObjectIdentifier dol_medium = dol_policies.branch("2");
 
-	The following three policies are defined in the "United States Department of Agriculture and National Finance Center Public Key Infrastructure Certificate Policy"
+	/*
+	 * ECA (External Certification Authority) Registered Objects
+	 * Ten objects have been registered to support the ECA policies for PKI. The first object is an arc for ECA policies.
+	 * 
+	 * -- the ECA policy arc
+	 * eca-policies OBJECT IDENTIFIER ::= { csor-certpolicy 12}
+	 */
+	public static final ASN1ObjectIdentifier eca_policies = csor_certpolicy.branch("12");
 
-	2.16.840.1.101.3.2.1.8.1	nfc-basicAssurance
-	2.16.840.1.101.3.2.1.8.2	nfc-mediumAssurance
-	2.16.840.1.101.3.2.1.8.3	nfc-highAssurance
-	Back to Top
-	Drug Enforcement Administration Registered Objects
-	Three objects have been registered to support the DEA PKI. The first object is an arc for DEA policies.
+	/*
+	 * -- the eca policy OIDS
+	 * 
+	 * The following three policies are defined in the "United States Department of Defense External Certification Authority X.509 Certificate Policy"
+	 */
+	public static final ASN1ObjectIdentifier eca_medium = eca_policies.branch("1");
+	public static final ASN1ObjectIdentifier eca_medium_hardware = eca_policies.branch("2");
+	public static final ASN1ObjectIdentifier eca_medium_token = eca_policies.branch("3");
+	public static final ASN1ObjectIdentifier eca_medium_sha256 = eca_policies.branch("4");
+	public static final ASN1ObjectIdentifier eca_medium_token_sha256 = eca_policies.branch("5");
+	public static final ASN1ObjectIdentifier eca_medium_hardware_pivi = eca_policies.branch("6");
+	public static final ASN1ObjectIdentifier eca_cardauth_pivi = eca_policies.branch("7");
+	public static final ASN1ObjectIdentifier eca_contentsigning_pivi = eca_policies.branch("8");
+	public static final ASN1ObjectIdentifier eca_medium_device_sha256 = eca_policies.branch("9");
 
-	-- the DEA policy arc
-	dea-policies OBJECT IDENTIFIER ::= { csor-certpolicy 9}
+	/*
+	 * FDA (Food And Drug Administration) Registered Objects
+	 * Thirteen objects have been registered to support the Food and Drug Administration policies for PKI. The first object is an arc for FDA policies.
+	 * 
+	 * 	id-ORApki-policies OBJECT IDENTIFIER ::= { csor-certpolicy 13}
+	 */
+	public static final ASN1ObjectIdentifier orapki_policies = csor_certpolicy.branch("13");
 
-	-- the dea policy OIDS
+	/* 
+	 * The following policy is defined in the "X.509 Certificate Policy for the Food and Drug Administration (FDA) Office"
+	 */
+	public static final ASN1ObjectIdentifier orapki_test = orapki_policies.branch("1");
+	public static final ASN1ObjectIdentifier orapki_basic = orapki_policies.branch("2");
+	public static final ASN1ObjectIdentifier orapki_medium = orapki_policies.branch("3");
+	public static final ASN1ObjectIdentifier orapki_high = orapki_policies.branch("4");
 
-	The following policies have been assigned to this agency; however, we do not have the agency Certificate Profile associated with these OIDs.
+	/*
+	 * The following objects have been assigned to this agency and are defined in the "HHS Public Key Infrastructure X.509 Certificate Policy for HHS Domain Devices, Ver. 1.5"
+	 */
+	public static final ASN1ObjectIdentifier hhs_policies = orapki_policies.branch("5");
 
-	2.16.840.1.101.3.2.1.9.1	dea-csos-cp
-	2.16.840.1.101.3.2.1.9.2	dea-epcs-policy
-	Back to Top
-	DOE (Department Of Energy) Registered Objects
-	Five objects have been registered to support the Department of Energy policies for PKI. The first object is an arc for DOE policies.
-
-	-- the DOE policy arc
-	doe-policies OBJECT IDENTIFIER ::= { csor-certpolicy 10}
-
-	-- the doe policy OIDS
-
-	The following three policies are defined in the "Certificate Policy CP-1 for DOE Public Key Certificates in Unclassified"
-
-	2.16.840.1.101.3.2.1.10.1	doe-basic
-	2.16.840.1.101.3.2.1.10.2	doe-medium
-	2.16.840.1.101.3.2.1.10.3	doe-high
-	The policy below is defined in the "U.S. Department of Energy Public Key Infrastructure X.509 Certificate Policy" document.
-
-	2.16.840.1.101.3.2.1.10.4	doe-medium-v2
-	Back to Top
-	DOL (Department Of Labor) Registered Objects
-	Three objects have been registered to support the Department of Labor policies for PKI. The first object is an arc for DOL policies.
-
-	-- the DOL policy arc
-	dol-policies OBJECT IDENTIFIER ::= { csor-certpolicy 11}
-
-	-- the dol policy OIDS
-
-	These OIDs have been assigned to this agency; however, we do not have the agency Certificate Profile associated with these OIDs.
-
-	2.16.840.1.101.3.2.1.11.1	dol-basic
-	2.16.840.1.101.3.2.1.11.2	dol-medium
-	Back to Top
-	ECA (External Certification Authority) Registered Objects
-	Ten objects have been registered to support the ECA policies for PKI. The first object is an arc for ECA policies.
-
-	-- the ECA policy arc
-	eca-policies OBJECT IDENTIFIER ::= { csor-certpolicy 12}
-
-	-- the eca policy OIDS
-
-	The following three policies are defined in the "United States Department of Defense External Certification Authority X.509 Certificate Policy"
-
-	2.16.840.1.101.3.2.1.12.1	id-eca-medium
-	2.16.840.1.101.3.2.1.12.3	id-eca-medium-token
-	2.16.840.1.101.3.2.1.12.2	id-eca-medium-hardware
-	2.16.840.1.101.3.2.1.12.4	id-eca-medium-sha256
-	2.16.840.1.101.3.2.1.12.5	id-eca-medium-token-sha256
-	2.16.840.1.101.3.2.1.12.6	id-eca-medium-hardware-pivi
-	2.16.840.1.101.3.2.1.12.7	id-eca-cardauth-pivi
-	2.16.840.1.101.3.2.1.12.8	id-eca-contentsigning-pivi
-	2.16.840.1.101.3.2.1.12.9	id-eca-medium-device-sha256
-	Back to Top
-	FDA (Food And Drug Administration) Registered Objects
-	Thirteen objects have been registered to support the Food and Drug Administration policies for PKI. The first object is an arc for FDA policies.
-
-	id-ORApki-policies OBJECT IDENTIFIER ::= { csor-certpolicy 13}
-
-	The following policy is defined in the "X.509 Certificate Policy for the Food and Drug Administration (FDA) Office"
-
-	2.16.840.1.101.3.2.1.13.1	id-ORApki-assurance-test
-	2.16.840.1.101.3.2.1.13.2	id-ORApki-assurance-basic
-	2.16.840.1.101.3.2.1.13.3	id-ORApki-assurance-medium
-	2.16.840.1.101.3.2.1.13.4	id-ORApki-assurance-high
-	The following objects have been assigned to this agency and are defined in the "HHS Public Key Infrastructure X.509 Certificate Policy for HHS Domain Devices, Ver. 1.5"
-
+	/*
 	2.16.840.1.101.3.2.1.13.5	id-pki-HHSdomains
 	2.16.840.1.101.3.2.1.13.5.1	id-HHSdomains-LoA
 	2.16.840.1.101.3.2.1.13.5.1.1	id-HHSdomains-assurance-basic
@@ -328,7 +370,6 @@ public interface FPKIPolicyObjectIdentifiers {
 	2.16.840.1.101.3.2.1.13.5.2.3	id-pki-FDAdomains
 	 
 
-	Back to Top
 	Citizen And Commerce Registered Objects
 	Three objects have been registered to support the Citizen and Commerce policies for PKI. The first object is an arc for the Citizen and Commerce policies.
 
@@ -341,7 +382,7 @@ public interface FPKIPolicyObjectIdentifiers {
 
 	2.16.840.1.101.3.2.1.14.1	citizen-and-commerce-provisional
 	2.16.840.1.101.3.2.1.14.2	citizen-and-commerce-approved
-	Back to Top
+
 	Department Of Homeland Security Registered Objects
 	Twenty-three objects have been registered to support the Department of Homeland Security policies for PKI. The first object is an arc for the DHS policies.
 
@@ -399,9 +440,7 @@ public interface FPKIPolicyObjectIdentifiers {
 	2.16.840.1.101.3.2.1.15.38
 
 	id-dhs-certpcy-testInternalNpe
-	 
 
-	Back to Top
 	Department Of Justice Registered Objects
 	Eight objects have been registered to support the Department of Justice policies for PKI. The first object is an arc for the DOJ policies.
 
@@ -421,7 +460,7 @@ public interface FPKIPolicyObjectIdentifiers {
 
 	2.16.840.1.101.3.2.1.16.6.1	id-fbi-mediumAssurance
 	2.16.840.1.101.3.2.1.16.6.2	id-fbi-highAssurance
-	Back to Top
+
 	Government Printing Office Registered Objects
 	Six objects have been registered to support the Government Printing Office policies for PKI. The first object is an arc for the GPO policies.
 
@@ -437,7 +476,7 @@ public interface FPKIPolicyObjectIdentifiers {
 	2.16.840.1.101.3.2.1.17.3	id-gpo-certpcy-devices
 	2.16.840.1.101.3.2.1.17.4	id-gpo-certpcy-authentication
 	2.16.840.1.101.3.2.1.17.5	id-gpo-certpcy-cardAuth
-	Back to Top
+
 	Nuclear Regulatory Commission Registered Objects
 	Three objects have been registered to support the Nuclear Regulatory Commission policies for PKI. The first object is an arc for the NRC policies.
 
@@ -452,9 +491,7 @@ public interface FPKIPolicyObjectIdentifiers {
 	The following policy are defined in the "U.S. Nuclear Regulatory Commission Certificate Policy for Level 2 Assurance Addendum to the VTN CP" document (not publicly available).
 
 	2.16.840.1.101.3.2.1.18.2	id-nrc-level2
-	 
 
-	Back to Top
 	Department Of Interior Registered Objects
 	Three objects have been registered to support the Department of Interior policies for PKI. The first object is an arc for the DOI policies.
 
@@ -467,7 +504,7 @@ public interface FPKIPolicyObjectIdentifiers {
 
 	2.16.840.1.101.3.2.1.19.1	id-doi-basic
 	2.16.840.1.101.3.2.1.19.2	id-doi-medium
-	Back to Top
+
 	U.S. Postal Service Registered Objects
 	Nineteen objects have been registered to support the U.S. Postal Service policies for PKI. The first object is an arc for the USPS policies.
 
@@ -498,7 +535,6 @@ public interface FPKIPolicyObjectIdentifiers {
 	2.16.840.1.101.3.2.1.20.4.20	id-usps-Testcertpcy-pivi-contentSigning
 	2.16.840.1.101.3.2.1.20.4.37	id-usps-Testcertpcy-mediumDevice
 	2.16.840.1.101.3.2.1.20.4.38	id-usps-Testcertpcy-mediumDeviceHardware
-	Back to Top
 
 	Committee On National Security Systems Registered Objects
 	This arc is maintained by CNSS. The first object is an arc for the CNSS policies.
@@ -508,7 +544,6 @@ public interface FPKIPolicyObjectIdentifiers {
 
 	The OIDs assigned by this agency can be found in the Instruction for National Security Systems PKI X.509 Certificate Policy.
 
-	Back to Top
 	Federal Energy Regulatory Commission Registered Objects
 	Six objects have been registered to support the Federal Energy Regulatory Commission policies for PKI. The first object is an arc for the FERC policies.
 
@@ -524,7 +559,7 @@ public interface FPKIPolicyObjectIdentifiers {
 	2.16.840.1.101.3.2.1.22.3	id-ferc-Medium
 	2.16.840.1.101.3.2.1.22.4	id-ferc-Medium-Hardware
 	2.16.840.1.101.3.2.1.22.5	id-ferc-High
-	Back to Top
+
 	U.S. Agency For International Development
 	Three objects have been registered to support the U.S. Agency for International Development policies for PKI. The first object is an arc for the USAID policies.
 
@@ -537,7 +572,7 @@ public interface FPKIPolicyObjectIdentifiers {
 
 	2.16.840.1.101.3.2.1.23.1	id-usaid-basic
 	2.16.840.1.101.3.2.1.23.2	id-usaid-medium
-	Back to Top
+
 	PKI Pilots And Testing Registered Objects
 	There are 257 objects registered to support PKI pilots and testing. These objects define an arc for policies associated and 256 distinct policies. These policies should never be inserted in "real" certificates, and no relying party should ever accept such a certificate to implement security services in a "real" application! Note that the 256 policies are all equivalent and are defined within the "Test Certificate Policy to Support PKI Pilots and Testing" document.
 
@@ -557,9 +592,7 @@ public interface FPKIPolicyObjectIdentifiers {
 	2.16.840.1.101.3.2.1.48.8	test8
 	2.16.840.1.101.3.2.1.48.9	test9
 	2.16.840.1.101.3.2.1.48.10	test10
-	.................
-
-
+	...
 	2.16.840.1.101.3.2.1.48.254	test254
 	2.16.840.1.101.3.2.1.48.255	test255
 	2.16.840.1.101.3.2.1.48.256	test256
