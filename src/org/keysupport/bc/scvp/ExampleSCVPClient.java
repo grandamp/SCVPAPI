@@ -159,24 +159,16 @@ public class ExampleSCVPClient {
 		 * We can override policy, but our SCVP testing service makes use of the
 		 * Common Policy Root CA as the Trust Anchor.
 		 */
+		//TODO:  Add code to add Trust Anchor
 		// builder.addTrustAnchors(trustAnchor);
+		
+		//TODO:  Add input for validation policy identifier
 		builder.setValidationPolRef(new ASN1ObjectIdentifier(
 				"1.3.6.1.5.5.7.19.1"), null);
-		/*
-		 * Adding policy OIDs for OMB M-04-04 LOA-4:
-		 * 
-		 * http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-63-2.
-		 * pdf#page=123
-		 * 
-		 * Where the OIDs are documented at:
-		 * 
-		 * http://csrc.nist.gov/groups/ST/crypto_apps_infra/csor/pki_registration
-		 * .html
-		 */
+
 		for (String s: policyOids) {
 			builder.addUserPolicy(new ASN1ObjectIdentifier(s));
 		}
-		//2.16.840.1.101.3.2.1.3.13,2.16.840.1.101.3.2.1.3.18,2.16.840.1.101.3.2.1.3.26,2.16.840.1.101.3.2.1.3.7,2.16.840.1.101.3.2.1.3.24,2.16.840.1.101.3.2.1.3.16,2.16.840.1.101.3.2.1.3.12,2.16.840.1.101.3.2.1.3.4
 		/*
 		 * These are the additional RFC-5280 inputs:
 		 * 
@@ -185,6 +177,7 @@ public class ExampleSCVPClient {
 		 * (RequireExplicitPolicy). We allow mapped policies in place of the
 		 * explicitly defined inital policy set.
 		 */
+		//TODO:  Add code to set the following inputs
 		builder.setInhibitAnyPolicy(true);
 		builder.setRequireExplicitPolicy(true);
 		builder.setInhibitPolicyMapping(false);
@@ -195,11 +188,13 @@ public class ExampleSCVPClient {
 		/*
 		 * This is based off of the GSA SCVP Request/Response Profile
 		 */
+		//TODO:  Add Classes based off of the client profile document
 		builder.setRequestorName("URN:ValidationService:TEST:SCVPExample");
 		builder.setRequestorText("LOG;HI;MAJ;OTH;APP,https://github.com/grandamp/SCVPAPI/,-");
 		/*
 		 * Adding a 16 byte nonce
 		 */
+		//TODO:  Create an input for the nonce
 		builder.generateNonce(16);
 		/*
 		 * Final assembly of the request.
@@ -220,6 +215,7 @@ public class ExampleSCVPClient {
 		
 		certificateValid = validateSCVPResponse(resp);
 
+		//TODO:  Get rid of the println, and make use of a logger (for all classes)
 		System.out.println("Finished in "
 				+ (System.currentTimeMillis() - start) + " milliseconds.");
 		return certificateValid;
@@ -565,8 +561,25 @@ public class ExampleSCVPClient {
 								System.out.println("Signature Valid:\tTRUE");
 								/*
 								 * TODO: Validate that we trust the SCVP Signer
-								 * certificate
+								 * certificate:
 								 * 
+								 * To elaborate, while this code does validate the signature 
+								 * of the SCVP response, it does not verify the signer 
+								 * certificate is one that we "trust".  Further, a large
+								 * fault-tolerant SCVP service MAY have multiple SCVP signers.
+								 * To specify explicit trust in those signers as a command
+								 * line option, or as inputs to this code is counter-intuitive,
+								 * as SCVP is intended to ease the burden of managing trust lists.
+								 * 
+								 * So for this implementation, the SCVP signing certificate MUST chain
+								 * to one specific trust anchor.  There MUST be a policy on the SCVP
+								 * service that supports validation of all SCVP signers encountered
+								 * to that trust anchor.  It is up to the implementor how often
+								 * the SCVP signer is validated, vs. reliance on a cached CVResponse
+								 * of the prior validation.
+								 * 
+								 */ 
+								 /* 
 								 * Now we will process the CVResponse, verify
 								 * the response from the request artifacts, and
 								 * then return a result for human (or other IT
@@ -867,7 +880,7 @@ public class ExampleSCVPClient {
 
 	/*
 	 * This is not my preferable path... TODO: Replace transport with Apache
-	 * HTTP client
+	 * HTTP client.
 	 */
 	public static byte[] sendSCVPRequestPOST(String postURL, byte[] req)
 			throws SCVPException {
