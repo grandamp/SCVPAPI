@@ -57,6 +57,7 @@ import org.bouncycastle.asn1.x509.Certificate;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.Arrays;
 import org.keysupport.bc.scvp.asn1.CertChecks;
+import org.keysupport.bc.scvp.asn1.ReplyCheck;
 import org.keysupport.bc.scvp.asn1.SCVPRequest;
 import org.keysupport.crypto.CipherEngine;
 import org.keysupport.crypto.DigestEngine;
@@ -720,13 +721,13 @@ public class ExampleSCVPClient {
 											.getObjects();
 									int rcNum = 0;
 									while (rcEn.hasMoreElements()) {
-										ASN1Sequence replyCheck = rcEn
-												.nextElement();
-										ASN1ObjectIdentifier check = (ASN1ObjectIdentifier) replyCheck
-												.getObjectAt(0);
-										ASN1Integer status = (ASN1Integer) replyCheck
-												.getObjectAt(1);
-										if (status.getValue().equals(BigInteger.ZERO)) {
+										ReplyCheck replyCheck;
+										try {
+											replyCheck = ReplyCheck.getInstance(rcEn.nextElement());
+										} catch (IOException e) {
+											throw new SCVPException("Error decoding ReplyCheck ", e);
+										}
+										if (replyCheck.getStatus().getValue().equals(BigInteger.ZERO)) {
 											certificateValid = true; 
 										}
 										rcNum++;
