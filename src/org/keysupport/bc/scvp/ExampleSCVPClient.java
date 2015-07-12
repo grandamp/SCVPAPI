@@ -26,6 +26,9 @@ import java.util.Calendar;
 import java.util.Enumeration;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.bouncycastle.asn1.ASN1Enumerated;
 import org.bouncycastle.asn1.ASN1GeneralizedTime;
@@ -61,6 +64,7 @@ import org.keysupport.util.DataUtil;
 
 public class ExampleSCVPClient {
 
+	private static final Logger log = Logger.getLogger(ExampleSCVPClient.class.getPackage().getName());
 	private Provider jceProvider = null;
 	private byte[] fullRequest = null;
 	private byte[] fullResponse = null;
@@ -74,6 +78,16 @@ public class ExampleSCVPClient {
 	}
 
 	public static void main(String args[]) {
+
+		/*
+		 * We are going to override the platform logger for
+		 * this example and throw all messages to the console.
+		 */
+		log.setUseParentHandlers(false);
+		ConsoleHandler handler = new ConsoleHandler();
+		log.setLevel(Level.ALL);
+		handler.setLevel(Level.ALL);
+		log.addHandler(handler);
 		
 		/*
 		 * The intent is to change the provider for the cryptographic
@@ -97,10 +111,10 @@ public class ExampleSCVPClient {
 			 */
 			try {
 				ASN1ObjectIdentifier id = new ASN1ObjectIdentifier(args[i]);
-				System.out.println("Including Policy: " + id.getId());
+				log.log(Level.INFO, "Including Policy: " + id.getId());
 				policyOids.add(id.toString());
 			} catch(IllegalArgumentException e) {
-				System.out.println("Invalid Policy OID:" + args[i] + ":" + e.getLocalizedMessage());
+				log.log(Level.SEVERE, "Invalid Policy OID:" + args[i] + ":" + e.getLocalizedMessage());
 			}
 			i++;
 		}
@@ -113,18 +127,18 @@ public class ExampleSCVPClient {
 					.generateCertificate(new FileInputStream(certFile));
 
 			if (client.validate(scvpUrl, endEntityCert, policyOids)) {
-				System.out.println("Certificate validated successfully.");
+				log.log(Level.INFO, "Certificate validated successfully.");
 			} else {
-				System.out.println("Certificate not valid.");
+				log.log(Level.INFO, "Certificate not valid.");
 			}
 		} catch (SCVPException e) {
-			System.out.println("There was a problem: " + e.getMessage());
+			log.log(Level.SEVERE, "There was a problem: " + e.getMessage());
 		} catch (NoSuchProviderException e) {
-			System.out.println("There was a problem with the JCE provider: " + e.getMessage());
+			log.log(Level.SEVERE, "There was a problem with the JCE provider: " + e.getMessage());
 		} catch (CertificateException e) {
-			System.out.println("There was a problem with the certificate: " + e.getMessage());
+			log.log(Level.SEVERE, "There was a problem with the certificate: " + e.getMessage());
 		} catch (FileNotFoundException e) {
-			System.out.println("No such file: " + certFile);
+			log.log(Level.SEVERE, "No such file: " + certFile);
 		}
 	}
 
@@ -146,7 +160,7 @@ public class ExampleSCVPClient {
 		} catch (CertificateException e) {
 			throw new SCVPException("Problem with client certificate", e);
 		}
-		System.out.println("Client Cert Subject:\t"
+		log.log(Level.INFO, "Client Cert Subject:\t"
 				+ eCert.getSubject().toString());
 
 		SCVPRequestBuilder builder = new SCVPRequestBuilder();
@@ -201,9 +215,7 @@ public class ExampleSCVPClient {
 		 * Final assembly of the request.
 		 */
 		SCVPRequest req = builder.buildRequest();
-		System.out.println("## SCVPRequest #######################################################");
-		System.out.println(ASN1Dump.dumpAsString(req, true));
-		System.out.println("######################################################################");
+		log.log(Level.FINE, "SCVPRequest:\n" + ASN1Dump.dumpAsString(req, true));
 		byte[] rawReq;
 		try {
 			rawReq = req.toASN1Primitive().getEncoded();
@@ -219,9 +231,7 @@ public class ExampleSCVPClient {
 		
 		certificateValid = validateSCVPResponse(resp);
 
-		//TODO:  Get rid of the println, and make use of a logger (for all classes)
-		System.out.println("Finished in "
-				+ (System.currentTimeMillis() - start) + " milliseconds.");
+		log.log(Level.INFO, "Finished in " + (System.currentTimeMillis() - start) + " milliseconds.");
 		return certificateValid;
 	}
 
@@ -255,9 +265,6 @@ public class ExampleSCVPClient {
 				}
 				contentType = contentInfoParser.getContentType();
 				if (CMSObjectIdentifiers.signedData.equals(contentType)) {
-					//System.out.println("CMS Content Type:\t"
-					//		+ contentType.toString());
-					// If we are here, then this is a CMS Signed Data object
 					try {
 						object = streamParser.readObject();
 					} catch (IOException e) {
@@ -271,16 +278,25 @@ public class ExampleSCVPClient {
 						 * (not a good long term solution)
 						 */
 						ASN1SequenceParser cmsSdPar = (ASN1SequenceParser) object;
-						System.out.println("## SCVPResponse #######################################################");
+
+						/*
+						 * The following is for logging, but we may switch to
+						 * decoding the response directly using a primitive, vs
+						 * trying to use the decoders.  Not certain if there is
+						 * a bug, but the decoders interpret some of the data
+						 * as BER and not DER :/
+						 */
 						ASN1Sequence ppResp = null;
 						try {
 							ppResp = (ASN1Sequence) ASN1Sequence.fromByteArray(resp);
-						} catch (IOException e1) {
-							// TODO Auto-generated catch block
-							e1.printStackTrace();
+						} catch (IOException e) {
+							throw new SCVPException(
+									"Problem parsing response from server", e);
 						}
-						System.out.println(ASN1Dump.dumpAsString(ppResp, true));
-						System.out.println("######################################################################");
+						log.log(Level.FINE, ASN1Dump.dumpAsString(ppResp, true));
+						/*
+						 * 
+						 */
 
 						// version CMSVersion
 						ASN1Integer sdv;
@@ -290,9 +306,6 @@ public class ExampleSCVPClient {
 							throw new SCVPException(
 									"Problem parsing CMS Version", e);
 						}
-						//System.out.println("SignedData Version:\t"
-						//		+ sdv.toString());
-						// digestAlgorithms DigestAlgorithmIdentifiers
 						ASN1SetParser dASetPar;
 						AlgorithmIdentifier algId;
 						try {
@@ -304,9 +317,6 @@ public class ExampleSCVPClient {
 									"Problem parsing digest algorithm identifier",
 									e);
 						}
-						//System.out.println("Digest Algorithm:\t"
-						//		+ algId.getAlgorithm().toString());
-						// encapContentInfo EncapsulatedContentInfo
 						ASN1SequenceParser eCInfoPar;
 						ASN1ObjectIdentifier eContentType;
 						ASN1TaggedObjectParser eContent;
@@ -316,8 +326,6 @@ public class ExampleSCVPClient {
 									.readObject();
 							eContentType = (ASN1ObjectIdentifier) eCInfoPar
 									.readObject();
-							//System.out.println("Encap Cont Type:\t"
-							//		+ eContentType.toString());
 							eContent = (ASN1TaggedObjectParser) eCInfoPar
 									.readObject();
 							cVResponse = (ASN1OctetString) eContent
@@ -361,9 +369,6 @@ public class ExampleSCVPClient {
 									"Unexpected Digest Algorithm: "
 											+ algId.getAlgorithm().getId());
 						}
-						//System.out.println("CVResponse Digest:\t"
-						//		+ DataUtil.byteArrayToString(digest));
-						// certificates [0] IMPLICIT CertificateSet OPTIONAL
 						ASN1TaggedObjectParser certSet;
 						Certificate cvSigner;
 						try {
@@ -376,9 +381,6 @@ public class ExampleSCVPClient {
 							throw new SCVPException(
 									"Error parsing SCVP Signer in CMS", e);
 						}
-						//System.out.println("Signer Subject:\t\t"
-						//		+ cvSigner.getSubject().toString());
-						// SignerInfos ::= SET OF SignerInfo
 						ASN1SetParser sInfosPar;
 						SignerInfo sInfo;
 						try {
@@ -401,11 +403,8 @@ public class ExampleSCVPClient {
 							 * value (signature). Parse and validate the
 							 * signature...
 							 */
-							//System.out.println("Cert matches SI:\tTRUE");
 							AlgorithmIdentifier sIAlgId = sInfo
 									.getDigestAlgorithm();
-							//System.out.println("SI Digest Algorithm:\t"
-							//		+ sIAlgId.getAlgorithm().toString());
 							Attributes sIAA = Attributes.getInstance(sInfo
 									.getAuthenticatedAttributes());
 							Attribute siContentType = null;
@@ -443,8 +442,6 @@ public class ExampleSCVPClient {
 										.getAttrValues().getObjectAt(0);
 								if (siCT.equals(new ASN1ObjectIdentifier(
 										"1.2.840.113549.1.9.16.1.11"))) {
-									//System.out
-									//		.println("SignerInfo ContentType:\tid-ct-scvp-psResponse");
 								} else {
 									throw new SCVPException(
 											"Unexpected Content Type: "
@@ -461,22 +458,12 @@ public class ExampleSCVPClient {
 									throw new SCVPException(
 											"Error parsing SigningTime", e);
 								}
-								//System.out.println("Current Time:\t\t"
-								//		+ currentTime.getTime().toString());
-								//System.out.println("Signing Time:\t\t"
-								//		+ signingTime.getTime().toString());
 								Calendar minBefore = new GregorianCalendar();
 								Calendar minAfter = new GregorianCalendar();
 								minBefore.add(Calendar.MINUTE, -1);
 								minAfter.add(Calendar.MINUTE, 1);
-								//System.out.println("Minute Before:\t\t"
-								//		+ minBefore.getTime().toString());
-								//System.out.println("Minute After:\t\t"
-								//		+ minAfter.getTime().toString());
 								if (!(currentTime.before(minBefore) || currentTime
 										.after(minAfter))) {
-								//	System.out
-								//			.println("Signing Timeframe:\tAcceptable");
 								} else {
 									throw new SCVPException(
 											"Unacceptable Signing Time: "
@@ -486,13 +473,7 @@ public class ExampleSCVPClient {
 								ASN1OctetString claimDigestOS = (ASN1OctetString) siMessageDigest
 										.getAttrValues().getObjectAt(0);
 								byte[] claimDigest = claimDigestOS.getOctets();
-								//System.out
-								//		.println("Claimed Digest:\t\t"
-								//				+ DataUtil
-								//						.byteArrayToString(claimDigest));
 								if (Arrays.areEqual(digest, claimDigest)) {
-									//System.out
-									//		.println("Calc and Claim Digest:\tMatch");
 								} else {
 									throw new SCVPException(
 											"SignerInfo Message Digest ("
@@ -515,10 +496,6 @@ public class ExampleSCVPClient {
 									.getSigningAlgorithm(
 											sIAlgId.getAlgorithm(),
 											sigAlg.getAlgorithm());
-							//System.out.println("Signature Algorithm:\t"
-							//		+ sigAlgName);
-							//System.out.println("Sig Length (bits):\t"
-							//		+ sigBits.length * Byte.SIZE);
 							Signature signature = null;
 							try {
 								signature = Signature.getInstance(sigAlgName,
@@ -573,7 +550,6 @@ public class ExampleSCVPClient {
 										e);
 							}
 							if (sigMatch) {
-								//System.out.println("Signature Valid:\tTRUE");
 								/*
 								 * TODO: Validate that we trust the SCVP Signer
 								 * certificate:
@@ -602,10 +578,6 @@ public class ExampleSCVPClient {
 								 * CVResponse from the response bytes we
 								 * digested (used for signature validation).
 								 */
-								//System.out
-								//		.println("CVResponse Bytes:\t"
-								//				+ DataUtil
-								//						.byteArrayToString(cVRespBytes));
 								ASN1StreamParser cvRespOs = new ASN1StreamParser(
 										cVRespBytes);
 								ASN1SequenceParser cvResp;
@@ -628,29 +600,15 @@ public class ExampleSCVPClient {
 											.readObject();
 									cvResponseVersion = ASN1Integer
 											.getInstance(cvResp.readObject());
-									//System.out.println("CVResponse Version:\t"
-									//		+ cvResponseVersion.getValue()
-									//				.toString());
 									serverConfigurationID = ASN1Integer
 											.getInstance(cvResp.readObject());
-									//System.out
-									//		.println("CVResponse server Conf:\t"
-									//				+ serverConfigurationID
-									//						.getValue()
-									//						.toString());
 									producedAt = ASN1GeneralizedTime
 											.getInstance(cvResp.readObject());
-									//System.out
-									//		.println("CVResponse producedAt:\t"
-									//				+ producedAt
-									//						.getTimeString());
 									responseStatus = ASN1Sequence
 											.getInstance(cvResp.readObject());
 									ASN1Enumerated statusCode = ASN1Enumerated
 											.getInstance(responseStatus
 													.getObjectAt(0));
-									//System.out.println("CVResponse Status:\t"
-									//		+ statusCode.getValue().toString());
 									/*
 									 * The remainder objects in this CVResponse
 									 * are tagged and OPTIONAL.
@@ -663,91 +621,46 @@ public class ExampleSCVPClient {
 										case 0: {
 											respValidationPolicy = (ASN1Sequence) atObjFp
 													.getObject();
-											//System.out
-											//		.println("[0]respValidationPolicy:"
-											//				+ DataUtil
-											//						.byteArrayToString(respValidationPolicy
-											//								.getEncoded()));
 											break;
 										}
 										case 1: {
 											requestRef = (ASN1TaggedObject) atObjFp
 													.getObject();
-											//System.out
-											//		.println("[1]requestRef:\t\t"
-											//				+ DataUtil
-											//						.byteArrayToString(requestRef
-											//								.getEncoded()));
 											break;
 										}
 										case 2: {
 											requestorRef = (ASN1Sequence) atObjFp
 													.getObject();
-											//System.out
-											//		.println("[2]requestorRef:\t"
-											//				+ DataUtil
-											//						.byteArrayToString(requestorRef
-											//								.getEncoded()));
 											break;
 										}
 										case 3: {
 											requestorName = (ASN1Sequence) atObjFp
 													.getObject();
-											//System.out
-											//		.println("[3]requestorName:\t"
-											//				+ DataUtil
-											//						.byteArrayToString(requestorName
-											//								.getEncoded()));
 											break;
 										}
 										case 4: {
 											replyObjects = (ASN1Sequence) atObjFp
 													.getObject();
-											//System.out
-											//		.println("[4]replyObjects:\t"
-											//				+ DataUtil
-											//						.byteArrayToString(replyObjects
-											//								.getEncoded()));
 											break;
 										}
 										case 5: {
 											respNonce = (ASN1OctetString) atObjFp
 													.getObject();
-											//System.out
-											//		.println("[5]respNonce:\t\t"
-											//				+ DataUtil
-											//						.byteArrayToString(respNonce
-											//								.getEncoded()));
 											break;
 										}
 										case 6: {
 											serverContextInfo = (ASN1OctetString) atObjFp
 													.getObject();
-											//System.out
-											//		.println("[6]serverContextInfo:\t"
-											//				+ DataUtil
-											//						.byteArrayToString(serverContextInfo
-											//								.getEncoded()));
 											break;
 										}
 										case 7: {
 											cvResponseExtensions = (ASN1Sequence) atObjFp
 													.getObject();
-											//System.out
-											//		.println("[7]cvResponseExtensions:\t"
-											//				+ DataUtil
-											//						.byteArrayToString(cvResponseExtensions
-											//								.getEncoded()));
 											break;
 										}
 										case 8: {
 											requestorText = (ASN1OctetString) atObjFp
 													.getObject();
-											//System.out
-											//		.println("[8]requestorText:\t"
-											//				+ DataUtil
-											//						.byteArrayToString(requestorText
-											//								.getEncoded()));
 											break;
 										}
 										default: {
@@ -784,24 +697,18 @@ public class ExampleSCVPClient {
 											.getInstance(((ASN1TaggedObject) replyObjects
 													.getObjectAt(0))
 													.getObject());
-									//System.out.println("cert:\t\t\t"
-									//		+ eCertInRO.getSubject());
 									/*
 									 * Get the statusCode
 									 */
 									ASN1Enumerated statusCode = ASN1Enumerated
 											.getInstance(replyObjects
 													.getObjectAt(1));
-									//System.out.println("replyStatus:\t\t"
-									//		+ statusCode.getValue().toString());
 									/*
 									 * Get the time of validation
 									 */
 									ASN1GeneralizedTime replyValTime = ASN1GeneralizedTime
 											.getInstance(replyObjects
 													.getObjectAt(2));
-									//System.out.println("replyValTime:\t\t"
-									//		+ replyValTime.getTimeString());
 									/*
 									 * Get the reply checks
 									 */
@@ -817,17 +724,11 @@ public class ExampleSCVPClient {
 												.nextElement();
 										ASN1ObjectIdentifier check = (ASN1ObjectIdentifier) replyCheck
 												.getObjectAt(0);
-										//System.out.println("replyCheck("
-										//		+ rcNum + "):check:\t"
-										//		+ check.getId());
 										ASN1Integer status = (ASN1Integer) replyCheck
 												.getObjectAt(1);
 										if (status.getValue().equals(BigInteger.ZERO)) {
 											certificateValid = true; 
 										}
-										//System.out.println("replyCheck("
-										//		+ rcNum + "):status:\t"
-										//		+ status.toString());
 										rcNum++;
 									}
 									/*
@@ -846,18 +747,11 @@ public class ExampleSCVPClient {
 												.nextElement();
 										ASN1ObjectIdentifier wb = (ASN1ObjectIdentifier) replyWantBack
 												.getObjectAt(0);
-										//System.out.println("replyWantBack("
-										//		+ wbNum + "):wb:\t"
-										//		+ wb.getId());
 										ASN1Integer check = (ASN1Integer) replyWantBack
 												.getObjectAt(1);
-										//System.out.println("replyWantBack("
-										//		+ wbNum + "):value:\t"
-										//		+ check.toString());
 										wbNum++;
 									}
 									Object rcObj = replyObjects.getObjectAt(5);
-									//System.out.println(rcObj);
 									/*
 									 * Return our validation boolean
 									 */
