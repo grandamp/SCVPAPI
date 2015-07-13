@@ -23,38 +23,27 @@
  */
 package org.keysupport.bc.scvp.asn1;
 
-import org.bouncycastle.asn1.ASN1GeneralizedTime;
+import java.io.IOException;
+import java.util.Enumeration;
+
+import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1Object;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.ASN1Sequence;
-import org.bouncycastle.asn1.x509.Extensions;
+import org.bouncycastle.asn1.DERSequence;
 
 /**
  * @author tejohnson
  * 
- * This class is a representation of a CertReply.
+ * This class is a representation of a ReplyChecks.
+ * 
  * <pre>
- *       CertReply ::= SEQUENCE {
- *         cert                       CertReference,
- *         replyStatus                ReplyStatus DEFAULT success,
- *         replyValTime               GeneralizedTime,
- *         replyChecks                ReplyChecks,
- *         replyWantBacks             ReplyWantBacks,
- *         validationErrors       [0] SEQUENCE SIZE (1..MAX) OF
- *                                      OBJECT IDENTIFIER OPTIONAL,
- *         nextUpdate             [1] GeneralizedTime OPTIONAL,
- *         certReplyExtensions    [2] Extensions OPTIONAL }
+ *       ReplyChecks ::= SEQUENCE OF ReplyCheck
  * </pre>
- *
- * This is where most of the validation action is.  For each
- * certificate that is checked by the SCVP service, this
- * object contains the result of those checks, as well as
- * any other pertinent information defined by policy,
- * or requested by the client.
  *
  * @version $Revision: 1.0 $
  */
-public class CertReply extends ASN1Object {
+public class ReplyChecks extends ASN1Object {
 
 	/*
 	 * Memory representation of this object
@@ -63,60 +52,74 @@ public class CertReply extends ASN1Object {
 	 * Field value.
 	 */
 	private ASN1Sequence value;
-	/**
-	 * Field check.
+
+	/*
+	 * The MIN and MAX size of this object are N/A
 	 */
-	private CertReference cert;
-	
 	/**
-	 * Field replyStatus.
+	 * 
+	 * @param replyChecks Enumeration<ReplyCheck>
 	 */
-	private ReplyStatus replyStatus;
+	public ReplyChecks(Enumeration<ReplyCheck> replyChecks) {
+
+		final ASN1EncodableVector v;
+
+		v = new ASN1EncodableVector();
+		while (replyChecks.hasMoreElements()) {
+			v.add(replyChecks.nextElement());
+		}
+		this.value = new DERSequence(v);
+
+	}
 
 	/**
-	 * Field replyValTime.
+	 * Constructor for ReplyChecks.
+	 * @param value ASN1Sequence
+	 * @throws IOException
 	 */
-	private ASN1GeneralizedTime replyValTime;
-	
-	/**
-	 * Field replyChecks.
-	 */
-	private ReplyChecks replyChecks;
-	
-	/**
-	 * Field replyWantBacks.
-	 */
-	private ReplyWantBacks replyWantBacks;
-	
-	/**
-	 * Field validationErrors.
-	 */
-	private ASN1Sequence validationErrors;
-	
-	/**
-	 * Field nextUpdate.
-	 */
-	private ASN1GeneralizedTime nextUpdate;
-	
-	/**
-	 * Field certReplyExtensions.
-	 */
-	private Extensions certReplyExtensions;
-	/*
-	 * The MIN and MAX size of this object
-	 */
-	/**
-	 * Field MIN_OBJ.
-	 */
-	private int MIN_OBJ = 5;
-	/**
-	 * Field MAX_OBJ.
-	 */
-	private int MAX_OBJ = 8;
+	private ReplyChecks(ASN1Sequence value) throws IOException {
+		/*
+		 * Check all of the elements to ensure they are a ReplyCheck
+		 */
+		Enumeration<?> rcEnum = value.getObjects();
+		while (rcEnum.hasMoreElements()) {
+			try {
+				ReplyCheck.getInstance(rcEnum.nextElement());
+			} catch (IOException e) {
+				throw new IOException("Invalid ReplyChecks syntax encountered");
+			}
+		}
+		this.value = value;
+	}
 
 	@SuppressWarnings("unused")
-	private CertReply() {
+	private ReplyChecks() {
 		//Hiding the default constructor
+	}
+
+	/**
+	 * Method getInstance.
+	 * @param obj Object
+	 * @return ReplyChecks
+	 * @throws IOException
+	 */
+	public static ReplyChecks getInstance(Object obj) throws IOException {
+		if (obj instanceof ReplyChecks) {
+			return (ReplyChecks) obj;
+		} else if (obj instanceof ASN1Sequence) {
+			return new ReplyChecks(ASN1Sequence.getInstance(obj));
+		} else {
+			throw new IOException("Invalid ReplyChecks: " + obj.getClass());
+		}
+	}
+
+	/**
+	 * Method getCheck.
+	 * @return Enumeration<ReplyCheck>
+	 */
+	@SuppressWarnings("unchecked")
+	public Enumeration<ReplyCheck> getValues() {
+		return this.value.getObjects();
 	}
 
 	/**

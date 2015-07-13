@@ -95,7 +95,7 @@ public class ReplyCheck extends ASN1Object {
 	public ReplyCheck(ASN1ObjectIdentifier check, ASN1Integer status) {
 		
 		final ASN1EncodableVector v;
-		
+
 		this.check = check;
 		if (null != status) {
 			this.status = status;
@@ -123,7 +123,7 @@ public class ReplyCheck extends ASN1Object {
 		 * Check the object size
 		 */
 		if (value.size() > MAX_OBJ || value.size() < MIN_OBJ) {
-			throw new IOException("Invalid ReplyCheck encoding encountered");
+			throw new IOException("Invalid ReplyCheck syntax encountered");
 		} else {
 			this.value = value;
 			this.check = (ASN1ObjectIdentifier) value.getObjectAt(0);

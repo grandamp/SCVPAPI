@@ -58,6 +58,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.Arrays;
 import org.keysupport.bc.scvp.asn1.CertChecks;
 import org.keysupport.bc.scvp.asn1.ReplyCheck;
+import org.keysupport.bc.scvp.asn1.ReplyChecks;
 import org.keysupport.bc.scvp.asn1.SCVPRequest;
 import org.keysupport.crypto.CipherEngine;
 import org.keysupport.crypto.DigestEngine;
@@ -712,25 +713,29 @@ public class ExampleSCVPClient {
 													.getObjectAt(2));
 									/*
 									 * Get the reply checks
+									 * 
+									 * This code only asked for one check, so it currently
+									 * assumes that there will only be one ReplyCheck.
+									 * 
+									 * This is not the proper way to do things...
 									 */
-									ASN1Sequence replyChecks = ASN1Sequence
-											.getInstance(replyObjects
-													.getObjectAt(3));
-									@SuppressWarnings("unchecked")
-									Enumeration<ASN1Sequence> rcEn = replyChecks
-											.getObjects();
-									int rcNum = 0;
-									while (rcEn.hasMoreElements()) {
+									ReplyChecks replyChecks;
+									try {
+										replyChecks = ReplyChecks.getInstance(replyObjects.getObjectAt(3));
+									} catch (IOException e) {
+										throw new SCVPException("Error decoding ReplyChecks: " + e.getLocalizedMessage(), e);
+									}
+									Enumeration<ReplyCheck> rcsEn = replyChecks.getValues();
+									while (rcsEn.hasMoreElements()) {
 										ReplyCheck replyCheck;
 										try {
-											replyCheck = ReplyCheck.getInstance(rcEn.nextElement());
+											replyCheck = ReplyCheck.getInstance(rcsEn.nextElement());
 										} catch (IOException e) {
 											throw new SCVPException("Error decoding ReplyCheck ", e);
 										}
 										if (replyCheck.getStatus().getValue().equals(BigInteger.ZERO)) {
 											certificateValid = true; 
 										}
-										rcNum++;
 									}
 									/*
 									 * Get the reply wantBacks (although we
