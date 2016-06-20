@@ -1,13 +1,17 @@
 package org.keysupport.bc.scvp;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.math.BigInteger;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.InvalidKeyException;
@@ -17,25 +21,20 @@ import java.security.Provider;
 import java.security.Security;
 import java.security.Signature;
 import java.security.SignatureException;
-import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Enumeration;
 import java.util.GregorianCalendar;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1Enumerated;
 import org.bouncycastle.asn1.ASN1GeneralizedTime;
 import org.bouncycastle.asn1.ASN1InputStream;
@@ -62,29 +61,49 @@ import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.Certificate;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.Arrays;
+import org.bouncycastle.util.encoders.Base64;
 import org.keysupport.bc.scvp.asn1.CertChecks;
 import org.keysupport.bc.scvp.asn1.ReplyCheck;
 import org.keysupport.bc.scvp.asn1.ReplyChecks;
 import org.keysupport.bc.scvp.asn1.SCVPRequest;
-import org.keysupport.bc.scvp.asn1.WantBack;
 import org.keysupport.crypto.CipherEngine;
 import org.keysupport.crypto.DigestEngine;
 import org.keysupport.fpki.CommonPolicyRootCA;
 import org.keysupport.util.DataUtil;
 
-public class ExampleSCVPClient {
+public class ExampleP7PEMSCVPClient {
 
-	private static final Logger log = Logger.getLogger(ExampleSCVPClient.class.getPackage().getName());
+	private static final Logger log = Logger.getLogger(ExampleP7PEMSCVPClient.class.getPackage().getName());
 	private Provider jceProvider = null;
 	private byte[] fullRequest = null;
 	private byte[] fullResponse = null;
 
-	public ExampleSCVPClient(Provider jceProvider) {
+	private final static int statusSuccess = 0;
+	private final static int statusMalformedPKC = 1;
+	private final static int statusMalformedAC = 2;
+	private final static int statusUnavailableValidationTime = 3;
+	private final static int statusReferenceCertHashFail = 4;
+	private final static int statusCertPathConstructFail = 5;
+	private final static int statusCertPathNotValid = 6;
+	private final static int statusCertPathNotValidNow = 7;
+	private final static int statusWantBackUnsatisfied = 8;
+
+	private final static String messageSuccess = new String("Success: all checks were performed successfully.");
+	private final static String messageMalformedPKC = new String("Failure: the public key certificate was malformed.");
+	private final static String messageMalformedAC = new String("Failure: the attribute certificate was malformed.");
+	private final static String messageUnavailableValidationTime = new String("Failure: historical data for the requested validation time is not available.");
+	private final static String messageReferenceCertHashFail = new String("Failure: the server could not locate the reference certificate or the referenced certificate did not match the hash value provided.");
+	private final static String messageCertPathConstructFail = new String("Failure: no certification path could be constructed.");
+	private final static String messageCertPathNotValid = new String("Failure: the constructed certification path is not valid with respect to the validation policy.");
+	private final static String messageCertPathNotValidNow = new String("Failure: the constructed certification path is not valid with respect to the validation policy, but a query at a later time may be successful.");
+	private final static String messageWantBackUnsatisfied = new String("Failure: all checks were performed successfully; however, one or more of the wantBacks could not be satisfied.");
+
+	public ExampleP7PEMSCVPClient(Provider jceProvider) {
 		this.jceProvider = jceProvider;
 	}
 
 	public static void usage() {
-		System.out.println("usage:  java -jar SCVPAPI.jar <scvp_url> <certificate_filename> <polOID> <polOID> <polOID> <polOID> ...");
+		System.out.println("usage:  java -jar SCVPAPI.jar <scvp_url> <PEM_Collection_filename> <polOID> <polOID> <polOID> <polOID> ...");
 	}
 
 	public static void main(String args[]) {
@@ -110,7 +129,7 @@ public class ExampleSCVPClient {
 		}
 		Provider jceProvider = new BouncyCastleProvider();
 		Security.addProvider(jceProvider);
-		ExampleSCVPClient client = new ExampleSCVPClient(jceProvider);
+		ExampleP7PEMSCVPClient client = new ExampleP7PEMSCVPClient(jceProvider);
 		String scvpUrl = args[0];
 		String certFile = args[1];
 		int i=2;
@@ -128,29 +147,26 @@ public class ExampleSCVPClient {
 			}
 			i++;
 		}
-		X509Certificate endEntityCert;
+		//X509Certificate endEntityCert;
 		try {
-
-			CertificateFactory cf;
-				cf = CertificateFactory.getInstance("X.509", jceProvider.getName());
-			endEntityCert = (X509Certificate) cf
-					.generateCertificate(new FileInputStream(certFile));
-
-			if (client.validate(scvpUrl, endEntityCert, policyOids)) {
-				log.log(Level.INFO, "Certificate validated successfully.");
-			} else {
-				log.log(Level.INFO, "Certificate not valid.");
+			Collection<X509Certificate> certs = getCertsFromPEM(new FileInputStream(certFile));
+			log.log(Level.INFO, "Processing " + certs.size() + " certificates.");
+			for (X509Certificate endEntityCert: certs) {
+				if (client.validate(scvpUrl, endEntityCert, policyOids)) {
+					log.log(Level.INFO, "Certificate validated successfully.");
+				} else {
+					log.log(Level.INFO, "Certificate not valid.");
+				}
 			}
 		} catch (SCVPException e) {
-			log.log(Level.SEVERE, "There was a problem: " + e.getMessage());
-		} catch (NoSuchProviderException e) {
-			log.log(Level.SEVERE, "There was a problem with the JCE provider: " + e.getMessage());
+			log.log(Level.SEVERE, "PROB: There was a problem: " + e.getMessage());
 		} catch (CertificateException e) {
-			log.log(Level.SEVERE, "There was a problem with the certificate: " + e.getMessage());
-			e.printStackTrace();
+			log.log(Level.SEVERE, "PROB: There was a problem with the certificate: " + e.getMessage());
 		} catch (FileNotFoundException e) {
-			log.log(Level.SEVERE, "No such file: " + certFile);
-		}
+			log.log(Level.SEVERE, "PROB: No such file: " + certFile);
+		} catch (IOException e) {
+			log.log(Level.SEVERE, "PROB: Error parsing file: " + certFile);
+		}	
 	}
 
 	public boolean validate(String scvpServer, X509Certificate endEntityCert, List<String> policyOids) throws SCVPException {
@@ -171,8 +187,8 @@ public class ExampleSCVPClient {
 		} catch (CertificateException e) {
 			throw new SCVPException("Problem with client certificate", e);
 		}
-		log.log(Level.INFO, "Client Cert Subject:\t"
-				+ eCert.getSubject().toString());
+		log.log(Level.INFO, "Client Cert Subject & Serial:\t"
+				+ eCert.getSubject().toString() + ";"+ eCert.getSerialNumber().toString());
 
 		SCVPRequestBuilder builder = new SCVPRequestBuilder();
 		/*
@@ -198,12 +214,11 @@ public class ExampleSCVPClient {
 		//TODO:  Add input for validation policy identifier
 		builder.setValidationPolRef(new ASN1ObjectIdentifier(
 				"1.3.6.1.5.5.7.19.1"), null);
-//		builder.setValidationPolRef(new ASN1ObjectIdentifier(
-//				"2.16.840.1.101.10.2.18.2.1.1"), null);
 
-		for (String s: policyOids) {
-			builder.addUserPolicy(new ASN1ObjectIdentifier(s));
-		}
+		//builder.addUserPolicy(new ASN1ObjectIdentifier("2.16.840.1.101.3.2.1.3.1"));
+		//for (String s: policyOids) {
+		//	builder.addUserPolicy(new ASN1ObjectIdentifier(s));
+		//}
 		/*
 		 * These are the additional RFC-5280 inputs:
 		 * 
@@ -213,13 +228,13 @@ public class ExampleSCVPClient {
 		 * explicitly defined inital policy set.
 		 */
 		//TODO:  Add code to set the following inputs
-		builder.setInhibitAnyPolicy(true);
-		builder.setRequireExplicitPolicy(true);
-		builder.setInhibitPolicyMapping(false);
+		//builder.setInhibitAnyPolicy(true);
+		//builder.setRequireExplicitPolicy(true);
+		//builder.setInhibitPolicyMapping(false);
 		/*
 		 * This is the certificate we are validating
 		 */
-		builder.addCertReference(eCert);
+		builder.setCertReference(eCert);
 		/*
 		 * This is based off of the GSA SCVP Request/Response Profile
 		 */
@@ -230,21 +245,12 @@ public class ExampleSCVPClient {
 		 * Adding a 16 byte nonce
 		 */
 		//TODO:  Create an input for the nonce
-		builder.generateNonce(16);
-		/*
-		 * We are going to form our wantbacks, which is id-swb-pkc-best-cert-path and 
-		 * id-swb-pkc-revocation-info
-		 */
-		ASN1EncodableVector oids = new ASN1EncodableVector();
-		oids.add(WantBack.idSwbPkcBestCertPath);
-		oids.add(WantBack.idSwbPkcRevocationInfo);
-		WantBack wb = new WantBack(oids);
-		builder.setWantBack(wb);
+		builder.generateNonce(8);
 		/*
 		 * Final assembly of the request.
 		 */
 		SCVPRequest req = builder.buildRequest();
-		log.log(Level.FINE, "SCVPRequest:\n" + ASN1Dump.dumpAsString(req, true));
+		//log.log(Level.FINE, "SCVPRequest:\n" + ASN1Dump.dumpAsString(req, true));
 		byte[] rawReq;
 		try {
 			rawReq = req.toASN1Primitive().getEncoded();
@@ -256,10 +262,12 @@ public class ExampleSCVPClient {
 		 * Send the request to the SCVP service...
 		 */
 		byte[] resp = sendSCVPRequestPOST(scvpServer, rawReq);
-		this.fullResponse = resp;
-		
-		certificateValid = validateSCVPResponse(resp);
-
+		if (null != resp) {
+			this.fullResponse = resp;
+			certificateValid = validateSCVPResponse(resp);
+		} else {
+			log.log(Level.SEVERE, "Server did not return a CVResponse!");
+		}
 		log.log(Level.INFO, "Finished in " + (System.currentTimeMillis() - start) + " milliseconds.");
 		return certificateValid;
 	}
@@ -322,7 +330,7 @@ public class ExampleSCVPClient {
 							throw new SCVPException(
 									"Problem parsing response from server", e);
 						}
-						log.log(Level.FINE, ASN1Dump.dumpAsString(ppResp, true));
+						//log.log(Level.FINE, ASN1Dump.dumpAsString(ppResp, true));
 						/*
 						 * 
 						 */
@@ -714,6 +722,8 @@ public class ExampleSCVPClient {
 								 * asked for one.
 								 */
 								if (replyObjects != null) {
+									//log.log(Level.FINE, ASN1Dump.dumpAsString(replyObjects, true));
+
 									/*
 									 * Technically we have the single
 									 * replyObject, so the following is the
@@ -729,7 +739,7 @@ public class ExampleSCVPClient {
 									/*
 									 * Get the statusCode
 									 */
-									ASN1Enumerated statusCode = ASN1Enumerated
+									ASN1Enumerated replyStatus = ASN1Enumerated
 											.getInstance(replyObjects
 													.getObjectAt(1));
 									/*
@@ -746,24 +756,72 @@ public class ExampleSCVPClient {
 									 * 
 									 * This is not the proper way to do things...
 									 */
-									ReplyChecks replyChecks;
-									try {
-										replyChecks = ReplyChecks.getInstance(replyObjects.getObjectAt(3));
-									} catch (IOException e) {
-										throw new SCVPException("Error decoding ReplyChecks: " + e.getLocalizedMessage(), e);
-									}
-									Enumeration<ReplyCheck> rcsEn = replyChecks.getValues();
-									while (rcsEn.hasMoreElements()) {
-										ReplyCheck replyCheck;
-										try {
-											replyCheck = ReplyCheck.getInstance(rcsEn.nextElement());
-										} catch (IOException e) {
-											throw new SCVPException("Error decoding ReplyCheck ", e);
-										}
-										if (replyCheck.getStatus().getValue().equals(BigInteger.ZERO)) {
+									//ReplyChecks replyChecks;
+									//try {
+									//	replyChecks = ReplyChecks.getInstance(replyObjects.getObjectAt(3));
+									//} catch (IOException e) {
+									//	throw new SCVPException("Error decoding ReplyChecks: " + e.getLocalizedMessage(), e);
+									//}
+									//Enumeration<ReplyCheck> rcsEn = replyChecks.getValues();
+									//while (rcsEn.hasMoreElements()) {
+									//	ReplyCheck replyCheck;
+									
+									//	try {
+									//		replyCheck = ReplyCheck.getInstance(rcsEn.nextElement());
+									//	} catch (IOException e) {
+									//		throw new SCVPException("Error decoding ReplyCheck ", e);
+									//	}
+										log.log(Level.INFO, "STATUS: " + replyStatus.getValue().intValue());
+										switch (replyStatus.getValue().intValue()) {
+										case statusSuccess: {
+											/*
+											 * Bottom line, if the replyStatus is anything other than
+											 * ReplyStatus.success, then the cert is invalid based on the
+											 * policy...
+											 */
 											certificateValid = true; 
+											log.log(Level.INFO, messageSuccess);
+											break;
 										}
-									}
+										case statusMalformedPKC: {
+											log.log(Level.INFO, messageMalformedPKC);
+											break;
+										}
+										case statusMalformedAC: {
+											log.log(Level.INFO, messageMalformedAC);
+											break;
+										}
+										case statusUnavailableValidationTime: {
+											log.log(Level.INFO, messageUnavailableValidationTime);
+											break;
+										}
+										case statusReferenceCertHashFail: {
+											log.log(Level.INFO, messageReferenceCertHashFail);
+											break;
+										}
+										case statusCertPathConstructFail: {
+											log.log(Level.INFO, messageCertPathConstructFail);
+											break;
+										}
+										case statusCertPathNotValid: {
+											log.log(Level.INFO, messageCertPathNotValid);
+											break;
+										}
+										case statusCertPathNotValidNow: {
+											log.log(Level.INFO, messageCertPathNotValidNow);
+											break;
+										}
+										case statusWantBackUnsatisfied: {
+											log.log(Level.INFO, messageWantBackUnsatisfied);
+											break;
+										}
+										default: {
+											log.log(Level.INFO, "Unknown validation error: " + replyStatus.getValue().intValue());
+											break;
+										}
+										}
+
+									//}
 									/*
 									 * Get the reply wantBacks (although we
 									 * asked for none)
@@ -780,15 +838,8 @@ public class ExampleSCVPClient {
 												.nextElement();
 										ASN1ObjectIdentifier wb = (ASN1ObjectIdentifier) replyWantBack
 												.getObjectAt(0);
-										/*
-										 * TODO:  Fix this bug
-										 * 
-										 * Exception in thread "main" java.lang.ClassCastException: org.bouncycastle.asn1.DEROctetString cannot be cast to org.bouncycastle.asn1.ASN1Integer
-										 *   at org.keysupport.bc.scvp.ExampleSCVPClient.validateSCVPResponse(ExampleSCVPClient.java:766)
-										 *   at org.keysupport.bc.scvp.ExampleSCVPClient.validate(ExampleSCVPClient.java:244)
-										 *   at org.keysupport.bc.scvp.ExampleSCVPClient.main(ExampleSCVPClient.java:133)
-										 */
-										ASN1Integer check = (ASN1Integer) replyWantBack.getObjectAt(1);
+										ASN1Integer check = (ASN1Integer) replyWantBack
+												.getObjectAt(1);
 										wbNum++;
 									}
 									Object rcObj = replyObjects.getObjectAt(5);
@@ -812,42 +863,9 @@ public class ExampleSCVPClient {
 						throw new SCVPException(
 								"Response from the server is not a CMS message");
 					}
-					//TODO:  We may receive an unsigned response.
-				} else if (new ASN1ObjectIdentifier("1.2.840.113549.1.9.16.1.11").equals(contentType)) {
-					try {
-						object = streamParser.readObject();
-					} catch (IOException e) {
-						throw new SCVPException(
-								"Problem parsing response from server", e);
-					}
-					if (object instanceof ASN1SequenceParser) {
-						/*
-						 * Now that we confirmed this is CMS Signed data we are
-						 * going to start parsing what we know without checking
-						 * (not a good long term solution)
-						 */
-						ASN1SequenceParser cmsSdPar = (ASN1SequenceParser) object;
-
-						/*
-						 * The following is for logging, but we may switch to
-						 * decoding the response directly using a primitive, vs
-						 * trying to use the decoders.  Not certain if there is
-						 * a bug, but the decoders interpret some of the data
-						 * as BER and not DER :/
-						 */
-						ASN1Sequence ppResp = null;
-						try {
-							ppResp = (ASN1Sequence) ASN1Sequence.fromByteArray(resp);
-						} catch (IOException e) {
-							throw new SCVPException(
-									"Problem parsing response from server", e);
-						}
-						log.log(Level.FINE, ASN1Dump.dumpAsString(ppResp, true));
-					}
 				} else {
-					log.log(Level.FINE, "Response:\n" + ASN1Dump.dumpAsString(contentType, true));
 					throw new SCVPException(
-							"Response from the server is not a CMS SignedData message or CMS ContentInfo");
+							"Response from the server is not a CMS SignedData message");
 				}
 			} else {
 				throw new SCVPException(
@@ -869,7 +887,8 @@ public class ExampleSCVPClient {
 		byte[] resp = null;
 		try {
 			URL url = new URL(postURL);
-			URLConnection con = url.openConnection();
+			HttpURLConnection con = (HttpURLConnection)url.openConnection();
+			con.setRequestMethod("POST");
 			con.setReadTimeout(120000);
 			con.setConnectTimeout(120000);
 			con.setAllowUserInteraction(false);
@@ -886,41 +905,28 @@ public class ExampleSCVPClient {
 			/*
 			 * Lets make sure we are receiving an SCVP response...
 			 */
-			Map<String,List<String>> headers = con.getHeaderFields();
-			Set<Entry<String, List<String>>> _headers = headers.entrySet();
-			System.out.println("Headers:");
-			for (Entry<String,List<String>> foo: _headers) {
-				String key = foo.getKey();
-				if (null != key) {
-					System.out.print(key + ": ");
-				}
-				List<String> fool = foo.getValue();
-				Iterator<String> vals = fool.iterator();
-				while (vals.hasNext()) {
-					String val = vals.next();
-					System.out.print(val);
-					if (vals.hasNext()) {
-						System.out.print(", ");
+			if (con.getResponseCode() == HttpURLConnection.HTTP_OK) {
+				if (con.getContentType().equalsIgnoreCase(
+						"application/scvp-cv-response")) {
+					ByteArrayOutputStream baos = new ByteArrayOutputStream();
+					byte[] chunk = new byte[4096];
+					int bytesRead;
+					InputStream stream = con.getInputStream();
+					while ((bytesRead = stream.read(chunk)) > 0) {
+						baos.write(chunk, 0, bytesRead);
 					}
+					resp = baos.toByteArray();
+				} else {
+					throw new SCVPException(
+							"Response from the server is not a CMS message");
 				}
-				System.out.println();
-			}
-			
-			if (con.getContentType().equalsIgnoreCase(
-					"application/scvp-cv-response")) {
-				ByteArrayOutputStream baos = new ByteArrayOutputStream();
-				byte[] chunk = new byte[4096];
-				int bytesRead;
-				InputStream stream = con.getInputStream();
-				while ((bytesRead = stream.read(chunk)) > 0) {
-					baos.write(chunk, 0, bytesRead);
-				}
-				resp = baos.toByteArray();
 			} else {
-				throw new SCVPException(
-						"Response from the server is not a CMS message");
+				//throw new SCVPException(
+				//		"Received unexpected HTTP response code: " + con.getResponseCode());
+				return null;
 			}
 		} catch (IOException e) {
+			log.log(Level.SEVERE, e.getLocalizedMessage());
 			throw new SCVPException("Problem communicating with SCVP server", e);
 		}
 		return resp;
@@ -939,5 +945,74 @@ public class ExampleSCVPClient {
 	public byte[] getFullResponse() {
 		return fullResponse;
 	}
+
+	/**
+	 * From:  https://svn.cesecore.eu/svn/ejbca/tags/Rel_4_0_14/ejbca/src/java/org/ejbca/util/CertTools.java
+	 * 
+	 * Reads a certificate in PEM-format from an InputStream. The stream may contain other things,
+	 * the first certificate in the stream is read.
+	 *
+	 * @param certstream the input stream containing the certificate in PEM-format
+	 * @return Ordered Collection of Certificate, first certificate first, or empty Collection
+	 * @exception IOException if the stream cannot be read.
+	 * @exception CertificateException if the stream does not contain a correct certificate.
+	 */
+	public static Collection<X509Certificate> getCertsFromPEM(InputStream certstream)
+			throws IOException, CertificateException {
+		ArrayList<X509Certificate> ret = new ArrayList<X509Certificate>();
+		String BEGIN_CERTIFICATE = "-----BEGIN CERTIFICATE-----";
+		String END_CERTIFICATE = "-----END CERTIFICATE-----";
+		String beginKeyTrust = "-----BEGIN TRUSTED CERTIFICATE-----";
+		String endKeyTrust = "-----END TRUSTED CERTIFICATE-----";
+		BufferedReader bufRdr = null;
+		ByteArrayOutputStream ostr = null;
+		PrintStream opstr = null;
+		try {
+			bufRdr = new BufferedReader(new InputStreamReader(certstream));
+			while (bufRdr.ready()) {
+				ostr = new ByteArrayOutputStream();
+				opstr = new PrintStream(ostr);
+				String temp;
+				while ((temp = bufRdr.readLine()) != null && !(temp.equals(BEGIN_CERTIFICATE) || temp.equals(beginKeyTrust))) {
+					continue;
+				}
+				if (temp == null) {
+					if (ret.isEmpty()) {
+						// There was no certificate in the file
+						throw new IOException("Error in " + certstream.toString() + ", missing " + BEGIN_CERTIFICATE + " boundary");
+					} else {
+						// There were certificates, but some blank lines or something in the end
+						// anyhow, the file has ended so we can break here.
+						break;
+					}
+				}
+				while ((temp = bufRdr.readLine()) != null && !(temp.equals(END_CERTIFICATE) || temp.equals(endKeyTrust))) {
+					opstr.print(temp);
+				}
+				if (temp == null) {
+					throw new IOException("Error in " + certstream.toString() + ", missing " + END_CERTIFICATE + " boundary");
+				}
+				opstr.close();
+
+				byte[] certbuf = Base64.decode(ostr.toByteArray());
+				ostr.close();
+				// Phweeew, were done, now decode the cert from file back to Certificate object
+				CertificateFactory cf = CertificateFactory.getInstance("X.509");
+				X509Certificate cert = (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(certbuf));
+				ret.add(cert);
+			}
+		} finally {
+			if (bufRdr != null) {
+				bufRdr.close();
+			}
+			if (opstr != null) {
+				opstr.close();
+			}
+			if (ostr != null) {
+				ostr.close();
+			}
+		}
+		return ret;
+	} // getCertsFromPEM
 
 }

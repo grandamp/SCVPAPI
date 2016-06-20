@@ -8,21 +8,20 @@ import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.DERTaggedObject;
 
 /*
- * ContentInfo ::= SEQUENCE {
-        contentType ContentType,
-        content [0] EXPLICIT ANY DEFINED BY contentType }
-
-      ContentType ::= OBJECT IDENTIFIER
+ * ContentInfo {
+        contentType        id-ct-scvp-valPolRequest,
+                                      -- (1.2.840.113549.1.9.16.1.12)
+        content            ValPolRequest }
  */
-public class SCVPRequest extends ASN1Object{
+public class ServerPolicyRequest extends ASN1Object{
 
-	public static final ASN1ObjectIdentifier idCtScvpCertValRequest = new ASN1ObjectIdentifier("1.2.840.113549.1.9.16.1.10");
+	public static final ASN1ObjectIdentifier idCtScvpValPolRequest = new ASN1ObjectIdentifier("1.2.840.113549.1.9.16.1.12");
 
 	private ASN1ObjectIdentifier contentType = null;
-	private CVRequest request = null;
+	private ValPolRequest request = null;
 	
-	public SCVPRequest(CVRequest request) {
-		this.contentType = idCtScvpCertValRequest;
+	public ServerPolicyRequest(ValPolRequest request) {
+		this.contentType = idCtScvpValPolRequest;
 		this.request = request;
 	}
 

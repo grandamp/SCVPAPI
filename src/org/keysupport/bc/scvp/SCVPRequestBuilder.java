@@ -1,13 +1,16 @@
 package org.keysupport.bc.scvp;
 
 import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
 
 import org.bouncycastle.asn1.ASN1Boolean;
+import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1Object;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERUTF8String;
+import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.Certificate;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.keysupport.bc.scvp.asn1.CVRequest;
@@ -15,11 +18,13 @@ import org.keysupport.bc.scvp.asn1.CertChecks;
 import org.keysupport.bc.scvp.asn1.CertReferences;
 import org.keysupport.bc.scvp.asn1.PKCReference;
 import org.keysupport.bc.scvp.asn1.Query;
+import org.keysupport.bc.scvp.asn1.ResponseFlags;
 import org.keysupport.bc.scvp.asn1.SCVPRequest;
 import org.keysupport.bc.scvp.asn1.TrustAnchors;
 import org.keysupport.bc.scvp.asn1.UserPolicySet;
 import org.keysupport.bc.scvp.asn1.ValidationPolRef;
 import org.keysupport.bc.scvp.asn1.ValidationPolicy;
+import org.keysupport.bc.scvp.asn1.WantBack;
 
 public class SCVPRequestBuilder {
 
@@ -44,6 +49,7 @@ public class SCVPRequestBuilder {
 	 */
 	private CertChecks checks = null;
 	private CertReferences queriedCerts = null;
+	private WantBack wantBack = null;
 	/*
 	 * CVRequest Contents
 	 */
@@ -111,7 +117,7 @@ public class SCVPRequestBuilder {
 		this.inhibitPolicyMapping = ASN1Boolean.getInstance(inhibit);
 	}
 
-	public void setCertReferences(Certificate cert) {
+	public void setCertReference(Certificate cert) {
 		this.queriedCerts = new CertReferences(new PKCReference(cert));
 	}
 
@@ -145,11 +151,25 @@ public class SCVPRequestBuilder {
 		
 		validationPolicy = new ValidationPolicy(validationPolRef, null, initialPolicies,
 				inhibitPolicyMapping, requireExplicitPolicy, inhibitAnyPolicy, anchors, null, null, null);
+//		validationPolicy = new ValidationPolicy(validationPolRef, null, initialPolicies,
+//				null, null, null, null, null, null, null);
+		/*
+		 * Now we are going to create our ResponseFlags to inject into the Query
+		 */
+		boolean fullRequestInResponse = true;
+		boolean responseValidationPolByRef = false;
+		boolean protectResponse = true;
+		boolean cachedResponse = false;
+		ResponseFlags responseFlags = new ResponseFlags(fullRequestInResponse, responseValidationPolByRef, protectResponse, cachedResponse);
 		/*
 		 * Next, we build the Query with the settings called, adding the ValidationPolicy.
 		 */
-		query = new Query(queriedCerts, checks, null, validationPolicy, null, null, null, null,
+		query = new Query(queriedCerts, checks, wantBack, validationPolicy, responseFlags, null, null, null,
 				null, null, null);
+		/*
+		 * Specify 1.2.840.113549.1.1.11 - sha256WithRSAEncryption for response signing
+		 */
+		//AlgorithmIdentifier sha256WithRSAEncryption = new AlgorithmIdentifier(new ASN1ObjectIdentifier("1.2.840.113549.1.1.11"));
 		/*
 		 * Now we construct the CVRequest, and add the Query.
 		 */
@@ -157,7 +177,7 @@ public class SCVPRequestBuilder {
 		/*
 		 * Finally, we envelope the CVRequest in a CMS message and return to the caller.
 		 */
-		encapRequest = new SCVPRequest(SCVPRequest.idCtScvpCertValRequest, request);
+		encapRequest = new SCVPRequest(request);
 		return encapRequest;
 	}
 
@@ -175,6 +195,20 @@ public class SCVPRequestBuilder {
 	
 	public ValidationPolicy getValidationPolicy() {
 		return validationPolicy;
+	}
+
+	/**
+	 * @return the wantBack
+	 */
+	public WantBack getWantBack() {
+		return wantBack;
+	}
+
+	/**
+	 * @param wantBack the wantBack to set
+	 */
+	public void setWantBack(WantBack wantBack) {
+		this.wantBack = wantBack;
 	}
 
 }

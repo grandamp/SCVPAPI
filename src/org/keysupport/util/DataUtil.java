@@ -8,14 +8,28 @@
 
 package org.keysupport.util;
 
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Locale;
 import java.util.UUID;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+
+import org.bouncycastle.util.encoders.Base64;
 
 /**
  * Provides utility methods to perform common operations.
@@ -315,5 +329,6 @@ public class DataUtil {
 	 * (Integer)jop.getValue(); dialog.dispose(); if(result ==
 	 * JOptionPane.OK_OPTION){ pin = jpf.getPassword(); } } return pin; }
 	 */
+
 
 }
