@@ -7,7 +7,6 @@ import java.io.OutputStream;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.Provider;
-import java.security.SecureRandom;
 import java.security.Security;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
