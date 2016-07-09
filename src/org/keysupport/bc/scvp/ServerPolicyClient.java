@@ -84,9 +84,8 @@ public class ServerPolicyClient {
 		log.addHandler(handler);
 		String scvpUrl = null;
 		if (args.length <= 0) {
-			//usage();
-			//return;
-			scvpUrl = "http://vs.treas.gov";
+			usage();
+			return;
 		} else {
 			scvpUrl = args[0];
 		}
